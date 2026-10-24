@@ -252,13 +252,16 @@ L'application est 100% Full-Stack et connectée à **Supabase** (PostgreSQL 17, 
 - Fonctions triggers durcies avec `SET search_path = public`.
 
 ### 6.3. Authentification & Onboarding Obligatoire en 3 Étapes
-- **Écran de Connexion (`/auth/login`)** : Authentification par email/mot de passe avec gestion de session SSR. Lien direct et opérationnel vers la récupération de mot de passe.
+- **Écran de Connexion (`/auth/login`)** : Authentification par email/mot de passe avec gestion de session SSR. Lien direct et opérationnel vers la récupération de mot de passe, interface 100% responsive sur mobile.
 - **Récupération de Mot de Passe (`/auth/forgot-password` & `/auth/reset-password`)** :
   - Saisie de l'adresse email et expédition sécurisée du lien de réinitialisation via Supabase Auth.
   - Page de définition du nouveau mot de passe avec validation et confirmation.
 - **Onboarding Obligatoire en 3 Étapes (`/auth/register`)** :
   - *Étape 1 : Identifiants du dirigeant* (Nom & Prénom, Fonction / Rôle, Email de connexion, Téléphone, Mot de passe).
-  - *Étape 2 : Configuration légale de l'entreprise* (Raison sociale, Forme juridique, NINEA / NIF, RCCM / RCS, Adresse du siège, Ville, Sélecteur de Pays de domiciliation : Sénégal, Côte d'Ivoire, Cameroun, Mali, etc. Conforme à la réglementation du pays de résidence de l'entreprise).
+  - *Étape 2 : Configuration légale de l'entreprise* :
+    - Libellés clairs et concis : **Identifiant fiscal** et **Registre du commerce**, chacun équipé d'un bouton d'information interactif (`InfoTooltip`) expliquant en détail les équivalents par pays (NINEA, NIF, SIREN, CIF, TIN / RCCM, RCS, CBE, etc.).
+    - Champ **Ville** vide par défaut avec placeholder suggestif.
+    - Sélecteur de **Pays de domiciliation** sans présélection par défaut (option initiale neutre `-- Sélectionnez votre pays --`) répertoriant les **195 pays du monde** avec drapeaux emojis (`src/lib/countries.ts`).
   - *Étape 3 : Coordonnées officielles de l'entreprise* (Email de facturation professionnel, Email PEC / Certifié optionnel, Téléphone de l'entreprise, Numéro WhatsApp professionnel).
   - Un trigger PostgreSQL `on_auth_user_created` alimente automatiquement `profiles` et `company_settings` dès la validation.
 - **Protection des Routes (`middleware.ts`)** :
@@ -268,11 +271,13 @@ L'application est 100% Full-Stack et connectée à **Supabase** (PostgreSQL 17, 
 ### 6.4. Supabase Storage (`company-assets`)
 - Bucket public `company-assets` sécurisé par 4 politiques RLS pour l'hébergement des logos d'entreprise et signatures officielles.
 
-### 6.5. Couche d'Accès aux Données (`src/lib/supabase/db.ts`) & Cache Local
+### 6.5. Couche d'Accès aux Données (`src/lib/supabase/db.ts`) 100% Directe
 - Fonctions CRUD typées : `fetchInvoices`, `saveInvoice`, `updateInvoiceStatus`, `deleteInvoice`, `fetchClients`, `saveClient`, `deleteClient`, `fetchCompanySettings`, `saveCompanySettings`, `uploadCompanyAsset`.
-- Initialisation déterministe `seedDemoDataIfEmpty(userId)` pour les nouveaux comptes.
-- Mise en cache instantanée dans `localStorage` pour éliminer toute latence d'affichage et offrir un fonctionnement résilient.
-
+- **Zéro donnée statique / mock pour les utilisateurs authentifiés** :
+  - Suppression totale des fallbacks mock (`MOCK_INVOICES`, `MOCK_CLIENTS`).
+  - Neutralisation de `seedDemoDataIfEmpty` : aucune fausse facture ou faux client d'exemple n'est injecté dans les comptes utilisateurs réels.
+  - Tout nouvel utilisateur commence avec son propre tableau de bord à zéro facture et zéro client, avec des états vides (*empty states*) élégants et des actions claires pour créer son premier client ou sa première facture.
+  - Synchronisation dynamique du profil utilisateur (`Sidebar.tsx`, `Header.tsx`) directement depuis `profiles` et `company_settings` Supabase.
 
 ---
 
@@ -280,29 +285,34 @@ L'application est 100% Full-Stack et connectée à **Supabase** (PostgreSQL 17, 
 
 Lors de toute intervention sur ce référentiel de code, le modèle d'IA DOIT se conformer strictement aux directives suivantes :
 
-1. **Préservation du Format Monétaire** :
+1. **Données Réelles Supabase Uniquement** :
+   - Ne jamais réintroduire de fallbacks vers `MOCK_INVOICES` ou `MOCK_CLIENTS` pour les utilisateurs authentifiés.
+   - Ne jamais réactiver le seed de fausses données dans `seedDemoDataIfEmpty`.
+   - Si la base de données retourne un tableau vide (`[]`), afficher proprement l'état vide avec invitation à créer le premier enregistrement.
+
+2. **Préservation du Format Monétaire** :
    - N'utiliser **aucun symbole `$` ou `€`** pour les montants sénégalais.
    - Ne jamais afficher de centimes pour les montants en FCFA (ex. écrire `1 500 000 FCFA` et jamais `1 500 000,00 FCFA`).
    - Toujours employer `formatFCFA(amount)` ou `formatAmountWithCurrency(amount, currency)`.
 
-2. **Format des Dates** :
+3. **Format des Dates** :
    - Toute date visible pour l'utilisateur doit être formatée en **`JJ/MM/AAAA`** via `formatDate()`. Ne jamais afficher de dates au format ISO brut (`2026-10-24`).
 
-3. **Génération de PDF (`pdf-generator.ts`)** :
+4. **Génération de PDF (`pdf-generator.ts`)** :
    - Conserver impérativement l'approche **vectorielle native jsPDF** (ne pas la remplacer par `html2canvas`).
    - Le logo `/images/devada-logo.png` est un flux JPEG interne sous extension `.png` : toujours l'insérer avec le format `"JPEG"` dans `doc.addImage()`.
    - Le bloc des totaux doit rester calé à `x = 105 mm` avec une largeur suffisante jusqu'à `x = 196 mm` pour éviter tout chevauchement entre les libellés ("Total TTC (Net à payer)") et les sommes en FCFA.
    - Maintenir le pied de page institutionnel d'entreprise au bas de page (`footerY = 282 mm`).
 
-4. **Filtrage par Période** :
+5. **Filtrage par Période** :
    - Toute section présentant des factures ou des métriques temporelles doit utiliser `isInvoiceInPeriod(issueDate, periodId)` depuis `@/lib/period-metrics`.
    - Quand `selectedPeriodId` change, réinitialiser la pagination à la page 1 (`setCurrentPage(1)`).
 
-5. **Aperçu et Fiche Facture** :
+6. **Aperçu et Fiche Facture** :
    - Toujours conserver le pied de page d'entreprise (Dénomination, Forme, NINEA, RCCM, Adresse, Ville, Tél, Email, Web) dans :
      - La page de détail `src/app/invoices/[id]/page.tsx`
      - La modale d'aperçu `src/components/invoices/InvoicePreviewModal.tsx`
      - Le Live Preview de création `src/app/invoices/new/page.tsx`
 
-6. **Validation TypeScript Obligatoire** :
+7. **Validation TypeScript Obligatoire** :
    - Avant de conclure toute tâche, exécuter `npx tsc --noEmit` et s'assurer qu'aucune erreur de compilation n'est levée.
