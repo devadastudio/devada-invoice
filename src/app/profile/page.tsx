@@ -10,29 +10,19 @@ import { uploadCompanyAsset } from "@/lib/supabase/db";
 import { cn } from "@/lib/utils";
 import {
   User,
-  Shield,
   KeyRound,
   Lock,
-  Smartphone,
   Eye,
   EyeOff,
   CheckCircle2,
   AlertCircle,
-  Building2,
   Mail,
-  Phone,
-  Briefcase,
-  Laptop,
-  Globe,
-  LogOut,
-  Bell,
-  Sparkles,
   Save,
-  Clock,
   MapPin,
   Camera,
   Upload,
   Trash2,
+  Loader2,
 } from "lucide-react";
 
 interface UserProfileState {
@@ -47,13 +37,6 @@ interface UserProfileState {
   rccm: string;
   bio: string;
   avatarImageData?: string;
-  twoFactorEnabled: boolean;
-  twoFactorMethod: "sms" | "app";
-  twoFactorPhone: string;
-  emailAlertsOnLogin: boolean;
-  sessionTimeout: string;
-  language: string;
-  timezone: string;
 }
 
 const STORAGE_KEY = "devada_user_profile";
@@ -61,7 +44,7 @@ const STORAGE_KEY = "devada_user_profile";
 export default function ProfilePage() {
   const { user, refreshAuthData } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "privacy" | "preferences">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "security">("profile");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile data state
@@ -77,13 +60,6 @@ export default function ProfilePage() {
     rccm: CURRENT_USER.rccm,
     bio: "Dirigeant d'entreprise et responsable des opérations financières chez Dakar Digital Agency.",
     avatarImageData: CURRENT_USER.avatarUrl || "",
-    twoFactorEnabled: true,
-    twoFactorMethod: "sms",
-    twoFactorPhone: "+221 77 845 22 10",
-    emailAlertsOnLogin: true,
-    sessionTimeout: "30",
-    language: "fr",
-    timezone: "Africa/Dakar",
   });
 
   // Password fields
@@ -91,34 +67,8 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
-  // Active sessions mock
-  const [sessions, setSessions] = useState([
-    {
-      id: "sess-1",
-      device: "Navigateur Chrome (Windows 11)",
-      location: "Dakar - Plateau, Sénégal 🇸🇳",
-      ip: "154.124.78.14",
-      lastActive: "Actuellement connecté",
-      isCurrent: true,
-    },
-    {
-      id: "sess-2",
-      device: "Application Mobile (iPhone 15 Pro)",
-      location: "Dakar - Almadies, Sénégal 🇸🇳",
-      ip: "154.124.89.210",
-      lastActive: "Il y a 3 heures",
-      isCurrent: false,
-    },
-    {
-      id: "sess-3",
-      device: "Navigateur Firefox (macOS)",
-      location: "Saint-Louis, Sénégal 🇸🇳",
-      ip: "41.82.112.5",
-      lastActive: "Le 20/10/2026",
-      isCurrent: false,
-    },
-  ]);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -366,37 +316,77 @@ export default function ProfilePage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError(null);
+
     if (!currentPassword) {
-      alert("Veuillez renseigner votre mot de passe actuel.");
+      setPasswordError("Veuillez saisir votre mot de passe actuel.");
       return;
     }
     if (newPassword.length < 8) {
-      alert("Le nouveau mot de passe doit comporter au moins 8 caractères.");
+      setPasswordError("Le nouveau mot de passe doit comporter au moins 8 caractères.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      alert("Les deux nouveaux mots de passe ne correspondent pas.");
+      setPasswordError("Le nouveau mot de passe et sa confirmation ne correspondent pas.");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPasswordError("Le nouveau mot de passe doit être différent du mot de passe actuel.");
       return;
     }
 
-    if (user) {
+    setPasswordLoading(true);
+
+    try {
       const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) {
-        alert(`Erreur lors du changement de mot de passe: ${error.message}`);
+
+      // Obtenir l'email de l'utilisateur connecté
+      let userEmail = user?.email;
+      if (!userEmail) {
+        const { data: authData } = await supabase.auth.getUser();
+        userEmail = authData.user?.email;
+      }
+
+      if (!userEmail) {
+        setPasswordError("Session utilisateur introuvable. Veuillez vous reconnecter.");
+        setPasswordLoading(false);
         return;
       }
+
+      // CONTRÔLE STRICT DU MOT DE PASSE ACTUEL : Vérifier auprès de Supabase Auth
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: currentPassword,
+      });
+
+      if (verifyError) {
+        setPasswordError("Le mot de passe actuel saisi est incorrect. Veuillez vérifier et réessayer.");
+        setPasswordLoading(false);
+        return;
+      }
+
+      // Le mot de passe actuel est exact, on procède à la mise à jour
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setPasswordError(`Erreur lors de la mise à jour du mot de passe : ${updateError.message}`);
+        setPasswordLoading(false);
+        return;
+      }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordError(null);
+      showToast("Votre mot de passe a été mis à jour avec succès !");
+    } catch (err: any) {
+      console.error("Erreur handleChangePassword:", err);
+      setPasswordError(`Une erreur inattendue est survenue : ${err?.message || "inconnue"}`);
+    } finally {
+      setPasswordLoading(false);
     }
-
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    showToast("Votre mot de passe a été mis à jour avec succès !");
-  };
-
-  const handleDisconnectOtherSessions = () => {
-    setSessions((prev) => prev.filter((s) => s.isCurrent));
-    showToast("Toutes les autres sessions distantes ont été déconnectées.");
   };
 
   // Password strength calculation
@@ -436,7 +426,7 @@ export default function ProfilePage() {
         <Header
           onMenuToggle={() => setMobileMenuOpen(true)}
           title="Mon Profil & Sécurité"
-          subtitle="Gérez vos données personnelles, identifiants, authentification et sessions actives"
+          subtitle="Gérez vos données personnelles, coordonnées professionnelles et mot de passe"
           breadcrumb="Compte / Profil"
           showPeriodSelector={false}
           showExportButton={false}
@@ -511,22 +501,23 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs (Only 2 tabs for this version) */}
           <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto no-scrollbar">
             {[
               { id: "profile", label: "Informations personnelles", icon: User },
               { id: "security", label: "Sécurité & Mot de passe", icon: KeyRound },
-              { id: "privacy", label: "Confidentialité & Sessions", icon: Shield },
-              { id: "preferences", label: "Préférences de compte", icon: Globe },
             ].map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  onClick={() => {
+                    setActiveTab(tab.id as typeof activeTab);
+                    setPasswordError(null);
+                  }}
                   className={cn(
-                    "flex items-center gap-2 py-3 px-3.5 border-b-2 font-semibold text-xs whitespace-nowrap transition-all",
+                    "flex items-center gap-2 py-3 px-3.5 border-b-2 font-semibold text-xs whitespace-nowrap transition-all cursor-pointer",
                     activeTab === tab.id
                       ? "border-blue-600 text-blue-600 dark:text-blue-400 font-bold"
                       : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -711,7 +702,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-end">
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-blue-500/25 transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-blue-500/25 transition-all cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>Enregistrer les informations</span>
@@ -731,11 +722,18 @@ export default function ProfilePage() {
                       Modifier le mot de passe
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Assurez-vous d&apos;utiliser un mot de passe sécurisé comportant majuscules, chiffres et symboles.
+                      Vérification préalable obligatoire de votre mot de passe actuel avant validation.
                     </p>
                   </div>
                   <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
+
+                {passwordError && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/50 flex items-start gap-2.5 text-xs text-rose-700 dark:text-rose-400 animate-in fade-in duration-150">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>{passwordError}</span>
+                  </div>
+                )}
 
                 <div className="space-y-3 max-w-md">
                   <div className="space-y-1.5">
@@ -746,7 +744,10 @@ export default function ProfilePage() {
                       type={showPassword ? "text" : "password"}
                       required
                       value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      onChange={(e) => {
+                        setCurrentPassword(e.target.value);
+                        if (passwordError) setPasswordError(null);
+                      }}
                       placeholder="••••••••••••"
                       className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
@@ -775,7 +776,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -810,226 +811,20 @@ export default function ProfilePage() {
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-blue-500/25 transition-all"
+                    disabled={passwordLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-sm shadow-blue-500/25 transition-all cursor-pointer"
                   >
-                    Mettre à jour le mot de passe
+                    {passwordLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Vérification du mot de passe...</span>
+                      </>
+                    ) : (
+                      <span>Mettre à jour le mot de passe</span>
+                    )}
                   </button>
                 </div>
               </form>
-
-              {/* Two-Factor Authentication 2FA */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-soft space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-                      <Smartphone className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        Authentification à deux facteurs (2FA)
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">
-                          Recommandé
-                        </span>
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Recevez un code de validation SMS ou via application à chaque nouvelle connexion.
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = !profile.twoFactorEnabled;
-                      setProfile({ ...profile, twoFactorEnabled: updated });
-                      showToast(updated ? "2FA activé avec succès." : "2FA désactivé.");
-                    }}
-                    className={cn(
-                      "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500",
-                      profile.twoFactorEnabled ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-700"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                        profile.twoFactorEnabled ? "translate-x-5" : "translate-x-0"
-                      )}
-                    />
-                  </button>
-                </div>
-
-                {profile.twoFactorEnabled && (
-                  <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 rounded-xl space-y-2 text-xs">
-                    <p className="font-semibold text-emerald-800 dark:text-emerald-300">
-                      Méthode active : SMS au {profile.twoFactorPhone}
-                    </p>
-                    <p className="text-slate-500 dark:text-slate-400 text-[11px]">
-                      Chaque tentative de connexion suspecte ou depuis un nouvel appareil nécessitera un code OTP à 6 chiffres.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Privacy & Active Sessions */}
-          {activeTab === "privacy" && (
-            <div className="space-y-6">
-              {/* Active Sessions */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-soft space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Sessions actives ({sessions.length})
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Appareils actuellement connectés à votre compte Devada Invoice.
-                    </p>
-                  </div>
-
-                  {sessions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={handleDisconnectOtherSessions}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 text-xs font-semibold transition-colors self-start sm:self-auto"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Déconnecter les autres sessions</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {sessions.map((sess) => (
-                    <div
-                      key={sess.id}
-                      className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 flex-shrink-0">
-                          <Laptop className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-bold text-slate-900 dark:text-white">
-                              {sess.device}
-                            </p>
-                            {sess.isCurrent && (
-                              <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60">
-                                Cet appareil
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-slate-400">
-                            {sess.location} • IP: <span className="font-mono">{sess.ip}</span>
-                          </p>
-                        </div>
-                      </div>
-
-                      <span className="text-xs text-slate-500 font-medium pl-12 sm:pl-0">
-                        {sess.lastActive}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Data & Privacy Rules */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-soft space-y-3 text-xs">
-                <div className="flex items-center gap-2 text-blue-600">
-                  <Shield className="w-4 h-4" />
-                  <h4 className="font-bold text-slate-900 dark:text-white">
-                    Protection des données & Confidentialité
-                  </h4>
-                </div>
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Conformément aux normes OHADA et aux règlements de la CDP Sénégal (Commission de Protection des Données Personnelles), vos données bancaires et coordonnées d&apos;entreprise ne sont jamais partagées à des tiers ni utilisées à des fins publicitaires.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: Preferences */}
-          {activeTab === "preferences" && (
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-soft space-y-4">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
-                  Préférences régionales & système
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Fuseau horaire officiel
-                    </label>
-                    <select
-                      value={profile.timezone}
-                      onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                    >
-                      <option value="Africa/Dakar">Dakar (GMT+00:00) — Heure légale Sénégal</option>
-                      <option value="Africa/Abidjan">Abidjan (GMT+00:00)</option>
-                      <option value="Africa/Bamako">Bamako (GMT+00:00)</option>
-                      <option value="Europe/Paris">Paris (GMT+01:00 / +02:00)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Langue d&apos;interface
-                    </label>
-                    <select
-                      value={profile.language}
-                      onChange={(e) => setProfile({ ...profile, language: e.target.value })}
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                    >
-                      <option value="fr">Français (Sénégal & UEMOA)</option>
-                      <option value="en">English (International)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">
-                        Alertes de connexion par email
-                      </p>
-                      <p className="text-[11px] text-slate-400">
-                        Recevoir un email d&apos;alerte lors de toute connexion suspecte
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setProfile({ ...profile, emailAlertsOnLogin: !profile.emailAlertsOnLogin })}
-                      className={cn(
-                        "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
-                        profile.emailAlertsOnLogin ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                          profile.emailAlertsOnLogin ? "translate-x-4" : "translate-x-0"
-                        )}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-                    showToast("Préférences sauvegardées avec succès !");
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-sm shadow-blue-500/25 transition-all"
-                >
-                  Enregistrer les préférences
-                </button>
-              </div>
             </div>
           )}
         </main>
