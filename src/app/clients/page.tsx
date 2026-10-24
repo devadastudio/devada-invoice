@@ -305,6 +305,7 @@ export default function ClientsPage() {
           address: formData.address.trim(),
           ninea: formData.ninea.trim() || undefined,
           status: formData.status,
+          acquisitionDate: formData.acquisitionDate || new Date().toISOString().split("T")[0],
         };
 
         const res = await saveClient(updatedClientData, currentUserId);
@@ -333,6 +334,7 @@ export default function ClientsPage() {
           ninea: formData.ninea.trim() || undefined,
           avatarBg: AVATAR_COLORS[clients.length % AVATAR_COLORS.length],
           status: formData.status,
+          acquisitionDate: formData.acquisitionDate || new Date().toISOString().split("T")[0],
         };
 
         const res = await saveClient(newClientPayload, currentUserId);

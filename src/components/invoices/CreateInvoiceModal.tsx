@@ -26,6 +26,8 @@ import { createClient } from "@/lib/supabase/client";
 import { saveInvoice, fetchInvoices } from "@/lib/supabase/db";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { AppLanguage, translateItemDescription } from "@/lib/i18n";
+import { generateAndDownloadInvoicePDF } from "@/lib/pdf-generator";
+import { WhatsAppShareModal } from "@/lib/whatsapp-utils";
 
 interface CreateInvoiceModalProps {
   isOpen: boolean;
@@ -51,6 +53,7 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
   const [dueDate, setDueDate] = useState("2026-11-08");
   const [paymentMethod, setPaymentMethod] = useState("Wave");
   const [createdInvoice, setCreatedInvoice] = useState<Invoice | null>(null);
+  const [whatsappShareInvoice, setWhatsappShareInvoice] = useState<Invoice | null>(null);
 
   const [items, setItems] = useState<NewItem[]>([
     {
@@ -460,6 +463,18 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
             { label: "Montant total TTC", value: formatFCFA(createdInvoice.amountTTC), isMono: true, isHighlight: true },
             { label: "Date d'échéance", value: formatDate(createdInvoice.dueDate) },
           ]}
+          downloadAction={{
+            label: "Télécharger PDF",
+            onClick: () => {
+              generateAndDownloadInvoicePDF(createdInvoice);
+            },
+          }}
+          whatsappAction={{
+            label: "Envoyer par WhatsApp",
+            onClick: () => {
+              setWhatsappShareInvoice(createdInvoice);
+            },
+          }}
           primaryAction={{
             label: "Consulter la facture",
             onClick: () => {
@@ -476,7 +491,16 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
               router.push("/invoices");
             },
           }}
-          closeLabel="Fermer"
+          closeLabel="Fermer l'onglet"
+        />
+      )}
+
+      {/* WhatsApp Share Modal */}
+      {whatsappShareInvoice && (
+        <WhatsAppShareModal
+          isOpen={!!whatsappShareInvoice}
+          onClose={() => setWhatsappShareInvoice(null)}
+          invoice={whatsappShareInvoice}
         />
       )}
     </>

@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import { Invoice, CompanySettings, CURRENT_USER } from "@/lib/mock-data";
+import { Invoice, CompanySettings, CURRENT_USER, DEFAULT_SETTINGS } from "@/lib/mock-data";
 import { formatFCFA, formatDate, formatCurrency } from "@/lib/utils";
 import { getInvoiceTranslations, isDefaultPaymentNotice, translateInvoiceText, AppLanguage } from "@/lib/i18n";
 
@@ -503,7 +503,7 @@ export function buildInvoiceVectorPDF(
  */
 export async function generateAndDownloadInvoicePDF(
   invoice: Invoice,
-  settings: CompanySettings
+  settings: CompanySettings = DEFAULT_SETTINGS
 ): Promise<void> {
   try {
     const logoData = await getProjectLogoData();
@@ -521,7 +521,7 @@ export async function generateAndDownloadInvoicePDF(
  */
 export async function generateInvoicePDFBlob(
   invoice: Invoice,
-  settings: CompanySettings
+  settings: CompanySettings = DEFAULT_SETTINGS
 ): Promise<Blob> {
   const logoData = await getProjectLogoData();
   const doc = buildInvoiceVectorPDF(invoice, settings, logoData);
@@ -533,7 +533,7 @@ export async function generateInvoicePDFBlob(
  */
 export async function printInvoicePDF(
   invoice: Invoice,
-  settings: CompanySettings
+  settings: CompanySettings = DEFAULT_SETTINGS
 ): Promise<void> {
   try {
     const logoData = await getProjectLogoData();

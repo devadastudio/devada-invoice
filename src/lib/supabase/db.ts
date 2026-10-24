@@ -63,6 +63,14 @@ export function rowToInvoice(row: InvoiceRow, items: InvoiceItemRow[] = []): Inv
 }
 
 export function rowToClient(row: ClientRow): Client {
+  const cleanDate =
+    (row as any).acquisition_date ||
+    (row.created_at
+      ? row.created_at.includes("T")
+        ? row.created_at.split("T")[0]
+        : row.created_at.split(" ")[0]
+      : new Date().toISOString().split("T")[0]);
+
   return {
     id: row.id,
     name: row.name,
@@ -81,6 +89,7 @@ export function rowToClient(row: ClientRow): Client {
     avatarBg: row.avatar_bg || "bg-blue-600",
     status: (row.status as "active" | "inactive") || "active",
     createdAt: row.created_at || new Date().toISOString(),
+    acquisitionDate: cleanDate,
   };
 }
 
@@ -382,6 +391,7 @@ export async function saveClient(
     rccm: client.rccm || null,
     avatar_bg: client.avatarBg || "bg-blue-600",
     status: client.status || "active",
+    acquisition_date: client.acquisitionDate || new Date().toISOString().split("T")[0],
   };
 
   const isTempId = !client.id || client.id.startsWith("client-");
@@ -554,7 +564,7 @@ export async function seedDemoDataIfEmpty(_userId: string): Promise<boolean> {
 export async function uploadCompanyAsset(
   file: File,
   userId: string,
-  folder: "logos" | "signatures"
+  folder: "logos" | "signatures" | "avatars"
 ): Promise<{ url: string | null; error?: string }> {
   const supabase = createClient();
 
@@ -575,4 +585,42 @@ export async function uploadCompanyAsset(
 
   const { data } = supabase.storage.from("company-assets").getPublicUrl(fileName);
   return { url: data.publicUrl };
+}
+
+// ============================================================================
+// OPÉRATIONS PROFIL UTILISATEUR
+// ============================================================================
+
+export async function saveProfile(
+  userId: string,
+  profileData: {
+    full_name?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+    city?: string;
+    bio?: string;
+    avatar_url?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      ...profileData,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("Erreur saveProfile:", error);
+    return { success: false, error: error.message };
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("user_profile_updated"));
+  }
+
+  return { success: true };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { CheckCircle2, X, Sparkles, ArrowRight } from "lucide-react";
+import { CheckCircle2, X, Sparkles, ArrowRight, Download, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SuccessModalDetail {
@@ -18,6 +18,14 @@ interface SuccessModalProps {
   message: string;
   badgeText?: string;
   details?: SuccessModalDetail[];
+  downloadAction?: {
+    label?: string;
+    onClick: () => void;
+  };
+  whatsappAction?: {
+    label?: string;
+    onClick: () => void;
+  };
   primaryAction?: {
     label: string;
     onClick: () => void;
@@ -36,9 +44,11 @@ export function SuccessModal({
   message,
   badgeText = "Opération réussie",
   details,
+  downloadAction,
+  whatsappAction,
   primaryAction,
   secondaryAction,
-  closeLabel = "Fermer",
+  closeLabel = "Fermer l'onglet",
 }: SuccessModalProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -70,7 +80,7 @@ export function SuccessModal({
         {/* Top Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           aria-label="Fermer"
         >
           <X className="w-4 h-4" />
@@ -122,44 +132,78 @@ export function SuccessModal({
           </div>
         )}
 
-        {/* Actions */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-2.5">
-          {primaryAction && (
-            <button
-              onClick={() => {
-                primaryAction.onClick();
-                onClose();
-              }}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-sm shadow-blue-500/25 flex items-center justify-center gap-1.5"
-            >
-              <span>{primaryAction.label}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+        {/* Actions Grid / Stack */}
+        <div className="mt-6 flex flex-col gap-2.5">
+          {/* Main Quick Action Buttons: Télécharger PDF & Envoyer par WhatsApp */}
+          {(downloadAction || whatsappAction) && (
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              {downloadAction && (
+                <button
+                  type="button"
+                  onClick={downloadAction.onClick}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-sm shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>{downloadAction.label || "Télécharger PDF"}</span>
+                </button>
+              )}
+
+              {whatsappAction && (
+                <button
+                  type="button"
+                  onClick={whatsappAction.onClick}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-sm shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>{whatsappAction.label || "Envoyer par WhatsApp"}</span>
+                </button>
+              )}
+            </div>
           )}
 
-          {secondaryAction && (
-            <button
-              onClick={() => {
-                secondaryAction.onClick();
-                onClose();
-              }}
-              className="py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
-            >
-              {secondaryAction.label}
-            </button>
-          )}
-
-          <button
-            onClick={onClose}
-            className={cn(
-              "py-2.5 px-4 rounded-xl text-xs font-semibold transition-colors",
-              primaryAction
-                ? "border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                : "w-full bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+          {/* Secondary links & Close */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            {primaryAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  primaryAction.onClick();
+                  onClose();
+                }}
+                className="flex-1 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>{primaryAction.label}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             )}
-          >
-            {closeLabel}
-          </button>
+
+            {secondaryAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  secondaryAction.onClick();
+                  onClose();
+                }}
+                className="py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                {secondaryAction.label}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className={cn(
+                "py-2 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer",
+                downloadAction || whatsappAction || primaryAction
+                  ? "border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  : "w-full bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+              )}
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>{closeLabel}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

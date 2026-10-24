@@ -65,14 +65,44 @@ export function convertCurrency(
 }
 
 /**
- * Format date string (YYYY-MM-DD) into jour/mois/année format
+ * Format date string into strict jour/mois/année (JJ/MM/AAAA) format
+ * Handles ISO strings ("2026-10-24T21:26:41..."), SQL timestamps ("2026-10-24 21:26:41..."), and date strings ("2026-10-24")
  * Example: formatDate("2026-10-24") => "24/10/2026"
  */
 export function formatDate(dateString: string): string {
   if (!dateString) return "-";
-  const [year, month, day] = dateString.split("-");
-  if (!year || !month || !day) return dateString;
-  return `${day}/${month}/${year}`;
+  // Strip any time part (after T or space)
+  const clean = dateString.includes("T")
+    ? dateString.split("T")[0]
+    : dateString.includes(" ")
+    ? dateString.split(" ")[0]
+    : dateString;
+
+  const parts = clean.split("-");
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    if (year && month && day) {
+      const cleanDay = day.replace(/\D/g, "").slice(0, 2);
+      const cleanMonth = month.replace(/\D/g, "").slice(0, 2);
+      const cleanYear = year.replace(/\D/g, "").slice(0, 4);
+      if (cleanDay && cleanMonth && cleanYear) {
+        return `${cleanDay.padStart(2, "0")}/${cleanMonth.padStart(2, "0")}/${cleanYear}`;
+      }
+    }
+  }
+
+  // Fallback to Date object if string was in another format
+  try {
+    const d = new Date(dateString);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  } catch {}
+
+  return dateString;
 }
 
 /**

@@ -38,6 +38,8 @@ import {
   SupportedCurrency,
   cn,
 } from "@/lib/utils";
+import { generateAndDownloadInvoicePDF } from "@/lib/pdf-generator";
+import { WhatsAppShareModal } from "@/lib/whatsapp-utils";
 import {
   Plus,
   Trash2,
@@ -223,6 +225,7 @@ function CreateInvoiceFormContent() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdInvoiceSuccess, setCreatedInvoiceSuccess] = useState<Invoice | null>(null);
+  const [whatsappInvoiceToShare, setWhatsappInvoiceToShare] = useState<Invoice | null>(null);
 
   // Selected client details
   const selectedClient = useMemo(() => {
@@ -1589,6 +1592,20 @@ function CreateInvoiceFormContent() {
                   : "Brouillon",
             },
           ]}
+          downloadAction={{
+            label: "Télécharger PDF",
+            onClick: () => {
+              generateAndDownloadInvoicePDF(createdInvoiceSuccess, settings);
+              setToastMessage("Téléchargement du document PDF démarré !");
+              setTimeout(() => setToastMessage(null), 3500);
+            },
+          }}
+          whatsappAction={{
+            label: "Envoyer par WhatsApp",
+            onClick: () => {
+              setWhatsappInvoiceToShare(createdInvoiceSuccess);
+            },
+          }}
           primaryAction={{
             label: "Consulter la facture",
             onClick: () => router.push(`/invoices/${createdInvoiceSuccess.id}`),
@@ -1597,7 +1614,21 @@ function CreateInvoiceFormContent() {
             label: "Liste des factures",
             onClick: () => router.push("/invoices"),
           }}
-          closeLabel="Fermer"
+          closeLabel="Fermer l'onglet"
+        />
+      )}
+
+      {/* WhatsApp Sharing Modal */}
+      {whatsappInvoiceToShare && (
+        <WhatsAppShareModal
+          isOpen={!!whatsappInvoiceToShare}
+          onClose={() => setWhatsappInvoiceToShare(null)}
+          invoice={whatsappInvoiceToShare}
+          settings={settings}
+          onNotify={(msg) => {
+            setToastMessage(msg);
+            setTimeout(() => setToastMessage(null), 3000);
+          }}
         />
       )}
     </div>

@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { CURRENT_USER, getStoredInvoices } from "@/lib/mock-data";
 import { getStoredLanguage, getPlatformTranslations, AppLanguage } from "@/lib/i18n";
 import { useAuth } from "@/lib/supabase/auth-context";
-import { fetchInvoices } from "@/lib/supabase/db";
+import { fetchInvoices, fetchClients } from "@/lib/supabase/db";
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -35,6 +35,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { user, profile, companySettings, signOut } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [invoicesCount, setInvoicesCount] = useState<number>(0);
+  const [clientsCount, setClientsCount] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<{
     name: string;
     company: string;
@@ -83,24 +84,48 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       setIsDarkMode(document.documentElement.classList.contains("dark"));
     }
 
-    // Dynamic invoices counter sync
+    // Dynamic invoices and clients counter sync
     const updateCount = async () => {
       if (user?.id) {
         try {
-          const dbInvs = await fetchInvoices(user.id);
+          const [dbInvs, dbClients] = await Promise.all([
+            fetchInvoices(user.id),
+            fetchClients(user.id),
+          ]);
           setInvoicesCount(dbInvs ? dbInvs.length : 0);
+          setClientsCount(dbClients ? dbClients.length : 0);
           return;
         } catch {}
       }
       setInvoicesCount(0);
+      setClientsCount(0);
     };
     updateCount();
 
     // Dynamic user profile sync
     const updateProfile = () => {
-      const name = profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : "");
-      const company = companySettings?.company_name || user?.user_metadata?.company_name || "";
-      const avatar = profile?.avatar_url || companySettings?.company_logo || "";
+      let storedProfile: any = null;
+      try {
+        const stored = localStorage.getItem("devada_user_profile");
+        if (stored) storedProfile = JSON.parse(stored);
+      } catch {}
+
+      const name =
+        profile?.full_name ||
+        user?.user_metadata?.full_name ||
+        storedProfile?.name ||
+        (user?.email ? user.email.split("@")[0] : "");
+      const company =
+        companySettings?.company_name ||
+        user?.user_metadata?.company_name ||
+        storedProfile?.company ||
+        "";
+      const avatar =
+        profile?.avatar_url ||
+        storedProfile?.avatarImageData ||
+        storedProfile?.avatarUrl ||
+        companySettings?.company_logo ||
+        "";
 
       setUserProfile({
         name: name || "Mon Compte",
@@ -116,11 +141,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     };
 
     window.addEventListener("invoices_updated", updateCount);
+    window.addEventListener("clients_updated", updateCount);
     window.addEventListener("user_profile_updated", updateProfile);
+    window.addEventListener("settings_updated", updateProfile);
     window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener("invoices_updated", updateCount);
+      window.removeEventListener("clients_updated", updateCount);
       window.removeEventListener("user_profile_updated", updateProfile);
+      window.removeEventListener("settings_updated", updateProfile);
       window.removeEventListener("storage", handleStorage);
     };
   }, [user?.id, profile, companySettings]);
@@ -163,6 +192,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       href: "/clients",
       icon: Users,
       active: pathname === "/clients",
+      badge: String(clientsCount),
+      badgeColor: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
     },
   ];
 

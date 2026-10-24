@@ -148,12 +148,13 @@ export default function ProfilePage() {
               email: dbProfile?.email || user.email || prev.email,
               phone: dbProfile?.phone || user.user_metadata?.phone || prev.phone,
               company: dbSettings?.company_name || user.user_metadata?.company_name || prev.company,
-              role: dbProfile?.role || prev.role,
-              avatarImageData: dbProfile?.avatar_url || prev.avatarImageData,
+              role: dbProfile?.role || user.user_metadata?.role || prev.role,
+              avatarImageData: dbProfile?.avatar_url || user.user_metadata?.avatar_url || prev.avatarImageData,
               ninea: dbSettings?.ninea || prev.ninea,
               rccm: dbSettings?.rccm || prev.rccm,
-              city: dbSettings?.city || prev.city,
+              city: dbProfile?.city || dbSettings?.city || prev.city,
               country: dbSettings?.country || prev.country,
+              bio: dbProfile?.bio || prev.bio,
             }));
             return;
           } else if (user.user_metadata) {
@@ -163,6 +164,9 @@ export default function ProfilePage() {
               email: user.email || prev.email,
               phone: user.user_metadata.phone || prev.phone,
               company: user.user_metadata.company_name || prev.company,
+              role: user.user_metadata.role || prev.role,
+              city: user.user_metadata.city || prev.city,
+              avatarImageData: user.user_metadata.avatar_url || prev.avatarImageData,
             }));
           }
         } catch (err) {
@@ -214,9 +218,18 @@ export default function ProfilePage() {
       let finalAvatarUrl = base64;
 
       if (user?.id) {
-        const uploadRes = await uploadCompanyAsset(file, user.id, "logos");
+        const uploadRes = await uploadCompanyAsset(file, user.id, "avatars");
         if (uploadRes.url) {
           finalAvatarUrl = uploadRes.url;
+          const supabase = createClient();
+          await supabase
+            .from("profiles")
+            .update({ avatar_url: finalAvatarUrl, updated_at: new Date().toISOString() })
+            .eq("id", user.id);
+          await supabase.auth.updateUser({
+            data: { avatar_url: finalAvatarUrl },
+          });
+          await refreshAuthData();
         }
       }
 
@@ -225,7 +238,7 @@ export default function ProfilePage() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         window.dispatchEvent(new Event("user_profile_updated"));
-        showToast("Photo de profil mise à jour et enregistrée !");
+        showToast("Photo de profil mise à jour et enregistrée sur le serveur !");
       } catch {
         showToast("Photo de profil appliquée.");
       }
@@ -234,11 +247,22 @@ export default function ProfilePage() {
     e.target.value = "";
   };
 
-  const handleRemoveAvatar = () => {
+  const handleRemoveAvatar = async () => {
     const updated = { ...profile, avatarImageData: "" };
     setProfile(updated);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      if (user?.id) {
+        const supabase = createClient();
+        await supabase
+          .from("profiles")
+          .update({ avatar_url: null, updated_at: new Date().toISOString() })
+          .eq("id", user.id);
+        await supabase.auth.updateUser({
+          data: { avatar_url: null },
+        });
+        await refreshAuthData();
+      }
       window.dispatchEvent(new Event("user_profile_updated"));
       showToast("Photo de profil supprimée.");
     } catch {}
@@ -255,33 +279,62 @@ export default function ProfilePage() {
       }
 
       if (currentUserId) {
-        await Promise.all([
-          supabase.from("profiles").upsert({
-            id: currentUserId,
-            email: user?.email || profile.email,
-            full_name: profile.name,
-            phone: profile.phone,
-            role: profile.role,
-            avatar_url: profile.avatarImageData,
-          }),
-          supabase
-            .from("company_settings")
-            .update({
-              company_name: profile.company,
-              ninea: profile.ninea,
-              rccm: profile.rccm,
-              city: profile.city,
-            })
-            .eq("user_id", currentUserId),
-        ]);
+        // 1. Sauvegarder dans profiles (nom, email, téléphone, fonction, ville, bio, avatar)
+        const { error: profErr } = await supabase.from("profiles").upsert({
+          id: currentUserId,
+          email: profile.email.trim(),
+          full_name: profile.name.trim(),
+          phone: profile.phone.trim() || null,
+          role: profile.role.trim() || null,
+          city: profile.city.trim() || null,
+          bio: profile.bio.trim() || null,
+          avatar_url: profile.avatarImageData || null,
+          updated_at: new Date().toISOString(),
+        });
+
+        if (profErr) {
+          console.error("Erreur upsert profiles:", profErr);
+        }
+
+        // 2. Mettre à jour company_settings (raison sociale, ville, pays, téléphone, email, NINEA, RCCM)
+        const { error: setErr } = await supabase
+          .from("company_settings")
+          .update({
+            company_name: profile.company.trim(),
+            ninea: profile.ninea.trim() || null,
+            rccm: profile.rccm.trim() || null,
+            city: profile.city.trim() || null,
+            country: profile.country.trim() || null,
+            phone: profile.phone.trim() || null,
+            email: profile.email.trim() || null,
+          })
+          .eq("user_id", currentUserId);
+
+        if (setErr) {
+          console.error("Erreur update company_settings:", setErr);
+        }
+
+        // 3. Mettre à jour metadata utilisateur Supabase Auth
+        await supabase.auth.updateUser({
+          data: {
+            full_name: profile.name.trim(),
+            phone: profile.phone.trim(),
+            role: profile.role.trim(),
+            city: profile.city.trim(),
+            company_name: profile.company.trim(),
+            avatar_url: profile.avatarImageData || null,
+          },
+        });
+
         await refreshAuthData();
         window.dispatchEvent(new Event("settings_updated"));
       }
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
       window.dispatchEvent(new Event("user_profile_updated"));
-      showToast("Profil et paramètres personnels enregistrés avec succès !");
-    } catch {
+      showToast("Profil et coordonnées professionnelles enregistrés avec succès !");
+    } catch (err) {
+      console.error("Erreur handleSaveProfile:", err);
       showToast("Erreur lors de la sauvegarde du profil.");
     }
   };
