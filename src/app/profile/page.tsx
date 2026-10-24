@@ -125,31 +125,37 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (user?.id) {
+      const supabase = createClient();
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
+
+      if (currentUserId) {
         try {
-          const supabase = createClient();
           const [{ data: dbProfile }, { data: dbSettings }] = await Promise.all([
             supabase
               .from("profiles")
               .select("*")
-              .eq("id", user.id)
+              .eq("id", currentUserId)
               .maybeSingle(),
             supabase
               .from("company_settings")
               .select("*")
-              .eq("user_id", user.id)
+              .eq("user_id", currentUserId)
               .maybeSingle(),
           ]);
 
           if (dbProfile || dbSettings) {
             setProfile((prev) => ({
               ...prev,
-              name: dbProfile?.full_name || user.user_metadata?.full_name || prev.name,
-              email: dbProfile?.email || user.email || prev.email,
-              phone: dbProfile?.phone || user.user_metadata?.phone || prev.phone,
-              company: dbSettings?.company_name || user.user_metadata?.company_name || prev.company,
-              role: dbProfile?.role || user.user_metadata?.role || prev.role,
-              avatarImageData: dbProfile?.avatar_url || user.user_metadata?.avatar_url || prev.avatarImageData,
+              name: dbProfile?.full_name || user?.user_metadata?.full_name || prev.name,
+              email: dbProfile?.email || user?.email || prev.email,
+              phone: dbProfile?.phone || user?.user_metadata?.phone || prev.phone,
+              company: dbSettings?.company_name || user?.user_metadata?.company_name || prev.company,
+              role: dbProfile?.role || user?.user_metadata?.role || prev.role,
+              avatarImageData: dbProfile?.avatar_url || user?.user_metadata?.avatar_url || prev.avatarImageData,
               ninea: dbSettings?.ninea || prev.ninea,
               rccm: dbSettings?.rccm || prev.rccm,
               city: dbProfile?.city || dbSettings?.city || prev.city,
@@ -157,7 +163,7 @@ export default function ProfilePage() {
               bio: dbProfile?.bio || prev.bio,
             }));
             return;
-          } else if (user.user_metadata) {
+          } else if (user?.user_metadata) {
             setProfile((prev) => ({
               ...prev,
               name: user.user_metadata.full_name || prev.name,
@@ -217,15 +223,21 @@ export default function ProfilePage() {
       const base64 = event.target?.result as string;
       let finalAvatarUrl = base64;
 
-      if (user?.id) {
-        const uploadRes = await uploadCompanyAsset(file, user.id, "avatars");
+      const supabase = createClient();
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
+
+      if (currentUserId) {
+        const uploadRes = await uploadCompanyAsset(file, currentUserId, "avatars");
         if (uploadRes.url) {
           finalAvatarUrl = uploadRes.url;
-          const supabase = createClient();
           await supabase
             .from("profiles")
             .update({ avatar_url: finalAvatarUrl, updated_at: new Date().toISOString() })
-            .eq("id", user.id);
+            .eq("id", currentUserId);
           await supabase.auth.updateUser({
             data: { avatar_url: finalAvatarUrl },
           });
@@ -252,12 +264,17 @@ export default function ProfilePage() {
     setProfile(updated);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      if (user?.id) {
-        const supabase = createClient();
+      const supabase = createClient();
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
+      if (currentUserId) {
         await supabase
           .from("profiles")
           .update({ avatar_url: null, updated_at: new Date().toISOString() })
-          .eq("id", user.id);
+          .eq("id", currentUserId);
         await supabase.auth.updateUser({
           data: { avatar_url: null },
         });
@@ -278,28 +295,36 @@ export default function ProfilePage() {
         currentUserId = authData.user?.id;
       }
 
-      if (currentUserId) {
-        // 1. Sauvegarder dans profiles (nom, email, téléphone, fonction, ville, bio, avatar)
-        const { error: profErr } = await supabase.from("profiles").upsert({
-          id: currentUserId,
-          email: profile.email.trim(),
-          full_name: profile.name.trim(),
-          phone: profile.phone.trim() || null,
-          role: profile.role.trim() || null,
-          city: profile.city.trim() || null,
-          bio: profile.bio.trim() || null,
-          avatar_url: profile.avatarImageData || null,
-          updated_at: new Date().toISOString(),
-        });
+      if (!currentUserId) {
+        showToast("Session utilisateur introuvable. Veuillez vous reconnecter.");
+        return;
+      }
 
-        if (profErr) {
-          console.error("Erreur upsert profiles:", profErr);
-        }
+      // 1. Sauvegarder dans profiles (nom, email, téléphone, fonction, ville, bio, avatar)
+      const { error: profErr } = await supabase.from("profiles").upsert({
+        id: currentUserId,
+        email: profile.email.trim(),
+        full_name: profile.name.trim(),
+        phone: profile.phone.trim() || null,
+        role: profile.role.trim() || null,
+        city: profile.city.trim() || null,
+        bio: profile.bio.trim() || null,
+        avatar_url: profile.avatarImageData || null,
+        updated_at: new Date().toISOString(),
+      });
 
-        // 2. Mettre à jour company_settings (raison sociale, ville, pays, téléphone, email, NINEA, RCCM)
-        const { error: setErr } = await supabase
-          .from("company_settings")
-          .update({
+      if (profErr) {
+        console.error("Erreur upsert profiles:", profErr);
+        showToast(`Erreur profil : ${profErr.message}`);
+        return;
+      }
+
+      // 2. Mettre à jour company_settings (raison sociale, ville, pays, téléphone, email, NINEA, RCCM)
+      const { error: setErr } = await supabase
+        .from("company_settings")
+        .upsert(
+          {
+            user_id: currentUserId,
             company_name: profile.company.trim(),
             ninea: profile.ninea.trim() || null,
             rccm: profile.rccm.trim() || null,
@@ -307,35 +332,35 @@ export default function ProfilePage() {
             country: profile.country.trim() || null,
             phone: profile.phone.trim() || null,
             email: profile.email.trim() || null,
-          })
-          .eq("user_id", currentUserId);
-
-        if (setErr) {
-          console.error("Erreur update company_settings:", setErr);
-        }
-
-        // 3. Mettre à jour metadata utilisateur Supabase Auth
-        await supabase.auth.updateUser({
-          data: {
-            full_name: profile.name.trim(),
-            phone: profile.phone.trim(),
-            role: profile.role.trim(),
-            city: profile.city.trim(),
-            company_name: profile.company.trim(),
-            avatar_url: profile.avatarImageData || null,
+            updated_at: new Date().toISOString(),
           },
-        });
+          { onConflict: "user_id" }
+        );
 
-        await refreshAuthData();
-        window.dispatchEvent(new Event("settings_updated"));
+      if (setErr) {
+        console.error("Erreur upsert company_settings:", setErr);
       }
 
+      // 3. Mettre à jour metadata utilisateur Supabase Auth
+      await supabase.auth.updateUser({
+        data: {
+          full_name: profile.name.trim(),
+          phone: profile.phone.trim(),
+          role: profile.role.trim(),
+          city: profile.city.trim(),
+          company_name: profile.company.trim(),
+          avatar_url: profile.avatarImageData || null,
+        },
+      });
+
+      await refreshAuthData();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
       window.dispatchEvent(new Event("user_profile_updated"));
+      window.dispatchEvent(new Event("settings_updated"));
       showToast("Profil et coordonnées professionnelles enregistrés avec succès !");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erreur handleSaveProfile:", err);
-      showToast("Erreur lors de la sauvegarde du profil.");
+      showToast(`Erreur lors de la sauvegarde : ${err?.message || "inconnue"}`);
     }
   };
 
