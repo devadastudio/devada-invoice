@@ -96,13 +96,23 @@ L'application permet aux dirigeants et gestionnaires :
 - **Moyens de Paiement** : Numéros marchands Wave Business et Orange Money, Coordonnées bancaires complètes (IBAN / BIC).
 - **Signature Officielle** : Importation d'image (PNG/JPG) ou saisie du nom pour signature calligraphique.
 
-### 2.8. Moteur PDF Vectoriel Haute Précision (`src/lib/pdf-generator.ts`)
+### 2.8. Profil Dirigeant & Sécurité du Mot de Passe (`/profile`)
+- **Structure épurée à 2 onglets exclusifs** :
+  - *Informations personnelles* : Coordonnées du dirigeant, nom, fonction, email, téléphone, ville, pays, biographie professionnelle et gestion de la photo de profil avec persistance Supabase (`profiles` et `company_settings`).
+  - *Sécurité & Mot de passe* : Formulaire de changement de mot de passe sécurisé.
+- **Contrôle strict et déterministe du mot de passe actuel** :
+  - Vérification préalable obligatoire auprès de Supabase Auth (`supabase.auth.signInWithPassword`) avant toute modification.
+  - Rejet immédiat avec message d'erreur si le mot de passe actuel saisi est erroné.
+  - Mise à jour du nouveau mot de passe (`supabase.auth.updateUser`) uniquement si le contrôle initial est validé.
+- **Sections désactivées pour cette version** : Authentification à deux facteurs (2FA), Confidentialité & Sessions, et Préférences de compte ont été intégralement retirées pour simplifier l'expérience utilisateur.
+
+### 2.9. Moteur PDF Vectoriel Haute Précision (`src/lib/pdf-generator.ts`)
 - Moteur 100% natif basé sur **jsPDF** (aucun rendu canvas pixélisé, poids plume < 25 KB).
 - Intégration du logo officiel du projet (`/images/devada-logo.png`).
 - Alignement géométrique précis : bloc des totaux décalé (`x = 105 mm`) pour garantir l'absence de chevauchement entre le texte "Total TTC (Net à payer)" et les montants en FCFA.
 - Pied de page d'entreprise institutionnel placé au bas (`footerY = 282 mm`).
 
-### 2.9. Partage WhatsApp Business (`src/lib/whatsapp-utils.tsx`)
+### 2.10. Partage WhatsApp Business (`src/lib/whatsapp-utils.tsx`)
 - Modale de prévisualisation du message avant expédition.
 - Message formaté avec emojis professionnels, numéro de facture, nom du client, montant en FCFA, date d'échéance et instructions de règlement Wave / Orange Money.
 
