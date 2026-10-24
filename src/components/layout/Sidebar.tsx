@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { CURRENT_USER, getStoredInvoices } from "@/lib/mock-data";
 import { getStoredLanguage, getPlatformTranslations, AppLanguage } from "@/lib/i18n";
 import { useAuth } from "@/lib/supabase/auth-context";
+import { fetchInvoices } from "@/lib/supabase/db";
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -33,15 +34,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, profile, companySettings, signOut } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [invoicesCount, setInvoicesCount] = useState<number>(50);
+  const [invoicesCount, setInvoicesCount] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<{
     name: string;
     company: string;
     avatarImageData?: string;
   }>({
-    name: CURRENT_USER.name,
-    company: CURRENT_USER.company,
-    avatarImageData: CURRENT_USER.avatarUrl || "",
+    name: "",
+    company: "",
+    avatarImageData: "",
   });
 
   const [currentLang, setCurrentLang] = useState<AppLanguage>("fr");
@@ -83,34 +84,29 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     }
 
     // Dynamic invoices counter sync
-    const updateCount = () => {
-      setInvoicesCount(getStoredInvoices().length);
+    const updateCount = async () => {
+      if (user?.id) {
+        try {
+          const dbInvs = await fetchInvoices(user.id);
+          setInvoicesCount(dbInvs ? dbInvs.length : 0);
+          return;
+        } catch {}
+      }
+      setInvoicesCount(0);
     };
     updateCount();
 
     // Dynamic user profile sync
     const updateProfile = () => {
-      try {
-        const stored = localStorage.getItem("devada_user_profile");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setUserProfile({
-            name: parsed.name || CURRENT_USER.name,
-            company: parsed.company || CURRENT_USER.company,
-            avatarImageData:
-              parsed.avatarImageData ||
-              parsed.avatarUrl ||
-              CURRENT_USER.avatarUrl ||
-              "",
-          });
-        } else {
-          setUserProfile({
-            name: CURRENT_USER.name,
-            company: CURRENT_USER.company,
-            avatarImageData: CURRENT_USER.avatarUrl || "",
-          });
-        }
-      } catch (e) {}
+      const name = profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : "");
+      const company = companySettings?.company_name || user?.user_metadata?.company_name || "";
+      const avatar = profile?.avatar_url || companySettings?.company_logo || "";
+
+      setUserProfile({
+        name: name || "Mon Compte",
+        company: company || "Mon Entreprise",
+        avatarImageData: avatar,
+      });
     };
     updateProfile();
 
@@ -127,7 +123,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       window.removeEventListener("user_profile_updated", updateProfile);
       window.removeEventListener("storage", handleStorage);
     };
-  }, []);
+  }, [user?.id, profile, companySettings]);
 
   const toggleDarkMode = () => {
     const nextDark = !isDarkMode;

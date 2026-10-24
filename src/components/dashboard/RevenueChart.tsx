@@ -78,7 +78,8 @@ export function RevenueChart({
 
   // Dynamic Top Clients from real invoices
   const dynamicTopClients = useMemo(() => {
-    if (invoices && invoices.length > 0) {
+    if (invoices !== undefined) {
+      if (invoices.length === 0) return [];
       const clientMap = new Map<
         string,
         { id: string; name: string; city: string; totalBilled: number; invoicesCount: number }
@@ -100,7 +101,7 @@ export function RevenueChart({
         .sort((a, b) => b.totalBilled - a.totalBilled)
         .slice(0, 4);
     }
-    return TOP_CLIENTS;
+    return [];
   }, [invoices]);
 
   // Selected bar item ID within the period (or null for whole period total)
@@ -369,40 +370,55 @@ export function RevenueChart({
           </p>
 
           <div className="space-y-3.5">
-            {dynamicTopClients.map((client, index) => {
-              const avatarStyle = CLIENT_AVATARS[index % CLIENT_AVATARS.length];
-              return (
-                <div
-                  key={client.id}
-                  className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors border border-transparent hover:border-slate-200/60 dark:hover:border-slate-700"
+            {dynamicTopClients.length === 0 ? (
+              <div className="py-8 text-center text-slate-400">
+                <Building className="w-7 h-7 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Aucun client facturé sur cette période
+                </p>
+                <Link
+                  href="/invoices/new"
+                  className="inline-block mt-2 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {/* Ultra high-contrast client badge */}
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs shadow-sm flex-shrink-0 ring-1 ring-black/5 dark:ring-white/10 ${avatarStyle.bg} ${avatarStyle.text}`}
-                    >
-                      {client.name.slice(0, 2).toUpperCase()}
+                  Créer votre première facture
+                </Link>
+              </div>
+            ) : (
+              dynamicTopClients.map((client, index) => {
+                const avatarStyle = CLIENT_AVATARS[index % CLIENT_AVATARS.length];
+                return (
+                  <div
+                    key={client.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors border border-transparent hover:border-slate-200/60 dark:hover:border-slate-700"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Ultra high-contrast client badge */}
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs shadow-sm flex-shrink-0 ring-1 ring-black/5 dark:ring-white/10 ${avatarStyle.bg} ${avatarStyle.text}`}
+                      >
+                        {client.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {client.name}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {client.invoicesCount} factures • {client.city}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {client.name}
+                    <div className="text-right flex-shrink-0 ml-2">
+                      <p className="text-xs font-mono font-bold text-slate-900 dark:text-white">
+                        {formatAmountWithCurrency(client.totalBilled, activeCurrency)}
                       </p>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {client.invoicesCount} factures • {client.city}
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                        Réglé à 100%
                       </p>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-2">
-                    <p className="text-xs font-mono font-bold text-slate-900 dark:text-white">
-                      {formatAmountWithCurrency(client.totalBilled, activeCurrency)}
-                    </p>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                      Réglé à 100%
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 

@@ -2163,22 +2163,15 @@ const INVOICES_STORAGE_KEY = "devada_invoices_data_v2";
 const CLIENTS_STORAGE_KEY = "devada_clients_data_v2";
 
 export function getStoredInvoices(): Invoice[] {
-  if (typeof window === "undefined") return MOCK_INVOICES;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(INVOICES_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify(MOCK_INVOICES));
-      return MOCK_INVOICES;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length < 10) {
-      // Re-seed if previously had only 6 items
-      localStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify(MOCK_INVOICES));
-      return MOCK_INVOICES;
-    }
+    if (!Array.isArray(parsed)) return [];
     return parsed;
   } catch {
-    return MOCK_INVOICES;
+    return [];
   }
 }
 
@@ -2194,21 +2187,15 @@ export function saveStoredInvoices(invoices: Invoice[]) {
 }
 
 export function getStoredClients(): Client[] {
-  if (typeof window === "undefined") return MOCK_CLIENTS;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(CLIENTS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(CLIENTS_STORAGE_KEY, JSON.stringify(MOCK_CLIENTS));
-      return MOCK_CLIENTS;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length < 8) {
-      localStorage.setItem(CLIENTS_STORAGE_KEY, JSON.stringify(MOCK_CLIENTS));
-      return MOCK_CLIENTS;
-    }
+    if (!Array.isArray(parsed)) return [];
     return parsed;
   } catch {
-    return MOCK_CLIENTS;
+    return [];
   }
 }
 
@@ -2380,9 +2367,9 @@ export function saveStoredSettings(settings: CompanySettings) {
   }
 }
 
-export function getNextInvoiceNumber(): string {
-  const invoices = getStoredInvoices();
-  let maxSeq = 50;
+export function getNextInvoiceNumber(invoicesList?: Invoice[]): string {
+  const invoices = invoicesList !== undefined ? invoicesList : getStoredInvoices();
+  let maxSeq = 0;
   invoices.forEach((inv) => {
     const match = inv.invoiceNumber.match(/FAC-(\d{4})-(\d+)/);
     if (match && match[2]) {
@@ -2392,7 +2379,8 @@ export function getNextInvoiceNumber(): string {
       }
     }
   });
-  return `FAC-2026-${String(maxSeq + 1).padStart(4, "0")}`;
+  const year = new Date().getFullYear();
+  return `FAC-${year}-${String(maxSeq + 1).padStart(4, "0")}`;
 }
 
 export interface AppNotification {

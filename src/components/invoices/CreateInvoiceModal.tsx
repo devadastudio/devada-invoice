@@ -22,7 +22,7 @@ import {
   getNextInvoiceNumber,
 } from "@/lib/mock-data";
 import { useAuth } from "@/lib/supabase/auth-context";
-import { saveInvoice } from "@/lib/supabase/db";
+import { saveInvoice, fetchInvoices } from "@/lib/supabase/db";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { AppLanguage, translateItemDescription } from "@/lib/i18n";
 
@@ -148,9 +148,12 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
       if (res.success && res.id) {
         newInv.id = res.id;
       }
+      const fresh = await fetchInvoices(user.id);
+      saveStoredInvoices(fresh || []);
+    } else {
+      saveStoredInvoices([newInv, ...getStoredInvoices()]);
     }
 
-    saveStoredInvoices([newInv, ...getStoredInvoices()]);
     if (onCreated) onCreated();
     setCreatedInvoice(newInv);
   };

@@ -72,7 +72,7 @@ export default function ClientsPage() {
   const { user } = useAuth();
   const { lang, t } = usePlatformLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeMemo, setActiveMemo] = useState<FilterMemo>("all");
 
@@ -94,7 +94,7 @@ export default function ClientsPage() {
     emailPec: "",
     phone: "",
     whatsapp: "",
-    city: "Dakar",
+    city: "",
     address: "",
     ninea: "",
     status: "active" as "active" | "inactive",
@@ -140,38 +140,36 @@ export default function ClientsPage() {
           fetchInvoices(user.id),
         ]);
 
-        if (dbClients.length > 0) {
-          const enriched = dbClients.map((c) => {
-            const clientInvs = invoices.filter(
-              (inv) =>
-                inv.clientName?.toLowerCase().trim() === c.name?.toLowerCase().trim() ||
-                (inv as any).clientId === c.id
-            );
-            const totalBilled = clientInvs.reduce(
-              (sum, inv) => sum + (inv.amountTTC || 0),
-              0
-            );
-            const balanceDue = clientInvs.reduce(
-              (sum, inv) => sum + (inv.balanceDue || 0),
-              0
-            );
-            return {
-              ...c,
-              totalBilled,
-              balanceDue,
-              invoicesCount: clientInvs.length,
-            };
-          });
-          setClients(enriched);
-          saveStoredClients(enriched);
-          return;
-        }
+        const enriched = (dbClients || []).map((c) => {
+          const clientInvs = (invoices || []).filter(
+            (inv) =>
+              inv.clientName?.toLowerCase().trim() === c.name?.toLowerCase().trim() ||
+              (inv as any).clientId === c.id
+          );
+          const totalBilled = clientInvs.reduce(
+            (sum, inv) => sum + (inv.amountTTC || 0),
+            0
+          );
+          const balanceDue = clientInvs.reduce(
+            (sum, inv) => sum + (inv.balanceDue || 0),
+            0
+          );
+          return {
+            ...c,
+            totalBilled,
+            balanceDue,
+            invoicesCount: clientInvs.length,
+          };
+        });
+        setClients(enriched);
+        saveStoredClients(enriched);
+        return;
       } catch (err) {
         console.error("Erreur chargement clients Supabase:", err);
       }
     }
-    // Fallback données locales / démo
-    setClients(getStoredClients());
+    // Si déconnecté ou 0 clients
+    setClients([]);
   };
 
   useEffect(() => {
@@ -210,9 +208,9 @@ export default function ClientsPage() {
       name: "",
       email: "",
       emailPec: "",
-      phone: "+221 ",
-      whatsapp: "+221 ",
-      city: "Dakar",
+      phone: "",
+      whatsapp: "",
+      city: "",
       address: "",
       ninea: "",
       status: "active",

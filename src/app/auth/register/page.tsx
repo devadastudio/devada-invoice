@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { WORLD_COUNTRIES } from "@/lib/countries";
 import {
   Building2,
   User,
@@ -24,6 +25,8 @@ import {
   Briefcase,
   Smartphone,
   Shield,
+  HelpCircle,
+  X,
 } from "lucide-react";
 
 const LEGAL_FORMS = [
@@ -36,23 +39,63 @@ const LEGAL_FORMS = [
   { value: "Freelance", label: "Consultant Indépendant / Freelance" },
 ];
 
-const COUNTRIES = [
-  { code: "SN", name: "Sénégal 🇸🇳" },
-  { code: "CI", name: "Côte d'Ivoire 🇨🇮" },
-  { code: "CM", name: "Cameroun 🇨🇲" },
-  { code: "ML", name: "Mali 🇲🇱" },
-  { code: "GN", name: "Guinée 🇬🇳" },
-  { code: "BJ", name: "Bénin 🇧🇯" },
-  { code: "TG", name: "Togo 🇹🇬" },
-  { code: "BF", name: "Burkina Faso 🇧🇫" },
-  { code: "GA", name: "Gabon 🇬🇦" },
-  { code: "CG", name: "Congo 🇨🇬" },
-  { code: "CD", name: "RD Congo 🇨🇩" },
-  { code: "FR", name: "France 🇫🇷" },
-  { code: "BE", name: "Belgique 🇧🇪" },
-  { code: "MA", name: "Maroc 🇲🇦" },
-  { code: "OTHER", name: "Autre pays 🌍" },
-];
+function InfoTooltip({ title, content }: { title: string; content: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="relative inline-flex items-center ml-1" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        className="p-0.5 rounded-full text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none transition-colors"
+        aria-label={`Informations sur ${title}`}
+      >
+        <HelpCircle className="w-3.5 h-3.5" />
+      </button>
+
+      {isOpen && (
+        <div
+          role="tooltip"
+          className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-64 sm:w-72 p-3 bg-slate-900/95 dark:bg-slate-800 text-white rounded-2xl shadow-xl text-[11px] leading-relaxed border border-slate-700/80 backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+        >
+          <div className="flex items-center justify-between pb-1 mb-1 border-b border-slate-700/60">
+            <span className="font-bold text-white text-[11px]">{title}</span>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-slate-400 hover:text-white sm:hidden p-0.5"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          <p className="text-slate-300 font-normal">{content}</p>
+          {/* Arrow */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900/95 dark:border-t-slate-800" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -77,8 +120,8 @@ export default function RegisterPage() {
   const [ninea, setNinea] = useState("");
   const [rccm, setRccm] = useState("");
   const [address, setAddress] = useState("");
-  const [city, setCity] = useState("Dakar");
-  const [country, setCountry] = useState("Sénégal 🇸🇳");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
 
   // Étape 3 : Coordonnées de Contact de l'Entreprise
   const [companyEmail, setCompanyEmail] = useState("");
@@ -132,6 +175,8 @@ export default function RegisterPage() {
 
     try {
       // 1. Inscription Supabase Auth avec toutes les métadonnées transmises au trigger SQL
+      const cleanCountry = country.replace(/[\uD83C-\uDBFF\uDC00-\uDFFF]/g, "").trim();
+
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -146,7 +191,7 @@ export default function RegisterPage() {
             rccm: rccm.trim(),
             address: address.trim(),
             city: city.trim(),
-            country: country.replace(/[^\w\sÀ-ÿ]/gi, "").trim(),
+            country: cleanCountry || "Sénégal",
             company_email: companyEmail.trim(),
             email_pec: emailPec.trim(),
             company_phone: companyPhone.trim() || phone.trim(),
@@ -163,7 +208,7 @@ export default function RegisterPage() {
 
       // Si l'utilisateur est connecté directement (auto-confirm)
       if (data.session && data.user) {
-        // Enregistrer explicitement dans company_settings pour garantir l'intégrité
+        // Enregistrer explicitement dans company_settings
         await supabase
           .from("company_settings")
           .upsert({
@@ -174,7 +219,7 @@ export default function RegisterPage() {
             rccm: rccm.trim(),
             address: address.trim(),
             city: city.trim(),
-            country: country.replace(/[^\w\sÀ-ÿ]/gi, "").trim(),
+            country: cleanCountry || "Sénégal",
             email: companyEmail.trim(),
             email_pec: emailPec.trim(),
             phone: companyPhone.trim() || phone.trim(),
@@ -199,9 +244,9 @@ export default function RegisterPage() {
 
   if (registrationSuccess) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
-          <div className="bg-white dark:bg-slate-900 py-8 px-6 sm:px-9 shadow-soft border border-slate-200/80 dark:border-slate-800 rounded-3xl text-center space-y-4">
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white dark:bg-slate-900 py-8 px-5 sm:px-9 shadow-soft border border-slate-200/80 dark:border-slate-800 rounded-3xl text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -218,7 +263,7 @@ export default function RegisterPage() {
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
               <Link
                 href="/auth/login"
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all"
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all"
               >
                 <span>Accéder à la page de connexion</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -231,13 +276,13 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex flex-col justify-center py-10 sm:px-6 lg:px-8 selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex flex-col justify-center py-6 sm:py-10 px-3 sm:px-6 lg:px-8 selection:bg-blue-600 selection:text-white overflow-x-hidden">
       {/* Background highlight */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-gradient-to-tr from-blue-500/10 via-emerald-500/10 to-transparent blur-3xl rounded-full" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-blue-500/10 via-emerald-500/10 to-transparent blur-3xl rounded-full" />
       </div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-lg relative z-10 text-center space-y-2">
+      <div className="sm:mx-auto sm:w-full sm:max-w-lg relative z-10 text-center space-y-2 px-1">
         {/* Brand Header */}
         <Link href="/" className="inline-flex items-center gap-2.5 group">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-0.5 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
@@ -259,19 +304,19 @@ export default function RegisterPage() {
           </div>
         </Link>
 
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-2">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-2">
           {step === 1 && "Vos identifiants de dirigeant"}
           {step === 2 && "Informations légales de l'entreprise"}
           {step === 3 && "Coordonnées officielles de l'entreprise"}
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
           {step === 1 && "Créez votre accès personnel avant de renseigner les informations légales de votre société."}
           {step === 2 && "Ces informations figureront sur l'en-tête et le pied de page de vos factures officielles conformes à la réglementation du pays où votre entreprise est domiciliée."}
           {step === 3 && "Coordonnées de contact pour vos factures, devis officiels et échanges avec vos clients."}
         </p>
 
         {/* Step Progress Bar (3 steps) */}
-        <div className="pt-3 max-w-xs mx-auto">
+        <div className="pt-2 sm:pt-3 max-w-xs mx-auto">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5">
             <span className={step >= 1 ? "text-blue-600 dark:text-blue-400 font-extrabold" : ""}>
               1. Identifiants
@@ -292,8 +337,8 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-lg relative z-10 px-4 sm:px-0">
-        <div className="bg-white dark:bg-slate-900 py-7 px-6 sm:px-8 shadow-soft border border-slate-200/80 dark:border-slate-800 rounded-3xl space-y-5">
+      <div className="mt-5 sm:mt-6 sm:mx-auto sm:w-full sm:max-w-lg relative z-10 px-2 sm:px-0">
+        <div className="bg-white dark:bg-slate-900 py-6 sm:py-7 px-4 sm:px-8 shadow-soft border border-slate-200/80 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-5">
           {/* Error Banner */}
           {errorMessage && (
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
@@ -321,7 +366,7 @@ export default function RegisterPage() {
                       placeholder="Amadou Diallo"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -340,7 +385,7 @@ export default function RegisterPage() {
                       placeholder="Directeur Général"
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -361,7 +406,7 @@ export default function RegisterPage() {
                     placeholder="amadou.diallo@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -381,7 +426,7 @@ export default function RegisterPage() {
                       placeholder="+221 77 123 45 67"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -401,14 +446,14 @@ export default function RegisterPage() {
                       placeholder="Min. 6 caractères"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-9 pr-10 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-10 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
-                      {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
@@ -417,10 +462,10 @@ export default function RegisterPage() {
               {/* Bouton Suivant */}
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all mt-4"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold shadow-sm shadow-blue-500/25 transition-all mt-4"
               >
                 <span>Continuer vers les infos entreprise</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           )}
@@ -448,10 +493,10 @@ export default function RegisterPage() {
                     <input
                       type="text"
                       required
-                      placeholder="Dakar Digital Agency SARL"
+                      placeholder="Ex : Digital Solutions SARL"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -464,7 +509,7 @@ export default function RegisterPage() {
                   <select
                     value={legalForm}
                     onChange={(e) => setLegalForm(e.target.value)}
-                    className="block w-full px-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                    className="block w-full px-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
                   >
                     {LEGAL_FORMS.map((f) => (
                       <option key={f.value} value={f.value}>
@@ -476,40 +521,52 @@ export default function RegisterPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* NINEA / NIF / SIREN */}
+                {/* Identifiant fiscal avec infobulle */}
                 <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Identifiant fiscal (NINEA / NIF / SIREN)
-                  </label>
+                  <div className="flex items-center">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Identifiant fiscal
+                    </label>
+                    <InfoTooltip
+                      title="Identifiant fiscal"
+                      content="Numéro d'immatriculation fiscale délivré par votre administration nationale. Exemples : NINEA (Sénégal), NIF (Côte d'Ivoire, Bénin, Cameroun, Mali...), SIREN / SIRET (France), CIF (Maroc, Espagne), TIN, etc."
+                    />
+                  </div>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <FileText className="h-4 w-4" />
                     </div>
                     <input
                       type="text"
-                      placeholder="006458921 2R8"
+                      placeholder="Ex : 006458921 2R8, NIF..."
                       value={ninea}
                       onChange={(e) => setNinea(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs font-mono bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-mono bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </div>
 
-                {/* RCCM / Registre du commerce */}
+                {/* Registre du commerce avec infobulle */}
                 <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Registre du commerce (RCCM / RCS)
-                  </label>
+                  <div className="flex items-center">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Registre du commerce
+                    </label>
+                    <InfoTooltip
+                      title="Registre du commerce"
+                      content="Numéro d'enregistrement légal de la société. Exemples : RCCM (Zone OHADA / UEMOA / Afrique de l'Ouest & Centrale), RCS / Kbis (France), Registre du Commerce (Maroc, Tunisie, Algérie), CBE / BCE (Belgique), etc."
+                    />
+                  </div>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <FileText className="h-4 w-4" />
                     </div>
                     <input
                       type="text"
-                      placeholder="SN-DKR-2022-B-1425"
+                      placeholder="Ex : SN-DKR-2022-B-1425, RCS..."
                       value={rccm}
                       onChange={(e) => setRccm(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs font-mono bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-mono bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -526,10 +583,10 @@ export default function RegisterPage() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Immeuble Kébé, Avenue Jean Jaurès, Plateau"
+                    placeholder="Ex : Avenue Jean Jaurès, Plateau"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -542,10 +599,10 @@ export default function RegisterPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="Dakar"
+                    placeholder="Ex : Dakar, Abidjan, Douala, Paris, Casablanca..."
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="block w-full px-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="block w-full px-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
@@ -561,11 +618,12 @@ export default function RegisterPage() {
                     <select
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
                     >
-                      {COUNTRIES.map((c) => (
-                        <option key={c.code} value={c.name}>
-                          {c.name}
+                      <option value="">-- Sélectionnez votre pays --</option>
+                      {WORLD_COUNTRIES.map((c) => (
+                        <option key={c.code} value={`${c.flag} ${c.name}`}>
+                          {c.flag} {c.name}
                         </option>
                       ))}
                     </select>
@@ -574,11 +632,11 @@ export default function RegisterPage() {
               </div>
 
               {/* Boutons Navigation Étape 2 */}
-              <div className="flex items-center gap-3 pt-3">
+              <div className="flex flex-col-reverse sm:flex-row items-center gap-2.5 sm:gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 min-h-[42px]"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Retour</span>
@@ -586,7 +644,7 @@ export default function RegisterPage() {
 
                 <button
                   type="submit"
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all"
+                  className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold shadow-sm shadow-blue-500/25 transition-all min-h-[42px]"
                 >
                   <span>Continuer vers les contacts officiels</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -617,10 +675,10 @@ export default function RegisterPage() {
                   <input
                     type="email"
                     required
-                    placeholder="contact@votre-entreprise.sn"
+                    placeholder="contact@votre-entreprise.com"
                     value={companyEmail}
                     onChange={(e) => setCompanyEmail(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -641,10 +699,10 @@ export default function RegisterPage() {
                   </div>
                   <input
                     type="email"
-                    placeholder="entreprise@pec.sn"
+                    placeholder="entreprise@pec.com"
                     value={emailPec}
                     onChange={(e) => setEmailPec(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -661,10 +719,10 @@ export default function RegisterPage() {
                     </div>
                     <input
                       type="tel"
-                      placeholder="+221 33 821 00 00"
+                      placeholder="Ex : +221 33 821 00 00"
                       value={companyPhone}
                       onChange={(e) => setCompanyPhone(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -680,22 +738,22 @@ export default function RegisterPage() {
                     </div>
                     <input
                       type="tel"
-                      placeholder="+221 77 123 45 67"
+                      placeholder="Ex : +221 77 123 45 67"
                       value={whatsappNumber}
                       onChange={(e) => setWhatsappNumber(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                      className="block w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Boutons Navigation Étape 3 */}
-              <div className="flex items-center gap-3 pt-3">
+              <div className="flex flex-col-reverse sm:flex-row items-center gap-2.5 sm:gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setStep(2)}
                   disabled={isLoading}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 min-h-[42px]"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Retour</span>
@@ -704,7 +762,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all disabled:opacity-60"
+                  className="w-full sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold shadow-sm shadow-blue-500/25 transition-all disabled:opacity-60 min-h-[42px]"
                 >
                   {isLoading ? (
                     <>
@@ -737,8 +795,8 @@ export default function RegisterPage() {
         </div>
 
         {/* Security badge footer */}
-        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-slate-400">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+        <div className="mt-5 sm:mt-6 flex items-center justify-center gap-2 text-[11px] text-slate-400 text-center px-2">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
           <span>Vos données financières sont chiffrées et isolées par Row Level Security (RLS)</span>
         </div>
       </div>

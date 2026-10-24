@@ -61,9 +61,8 @@ export default function InvoiceDetailPage() {
   const invoiceId = params?.id as string;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [invoice, setInvoice] = useState<Invoice | null>(() => {
-    return MOCK_INVOICES.find((inv) => inv.id === invoiceId) || MOCK_INVOICES[0];
-  });
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -73,19 +72,21 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     const loadInvoiceDetail = async () => {
+      setIsLoading(true);
       if (user?.id && invoiceId) {
         try {
           const [dbInvoice, dbSettings] = await Promise.all([
             fetchInvoiceById(invoiceId, user.id),
             fetchCompanySettings(user.id),
           ]);
-          if (dbInvoice) {
-            setInvoice(dbInvoice);
-          }
           if (dbSettings) {
             setSettings(dbSettings);
           }
-          if (dbInvoice) return;
+          if (dbInvoice) {
+            setInvoice(dbInvoice);
+            setIsLoading(false);
+            return;
+          }
         } catch (err) {
           console.error("Erreur chargement facture Supabase:", err);
         }
@@ -93,10 +94,9 @@ export default function InvoiceDetailPage() {
 
       setSettings(getStoredSettings());
       const list = getStoredInvoices();
-      const found = list.find((inv) => inv.id === invoiceId) || list[0];
-      if (found) {
-        setInvoice(found);
-      }
+      const found = list.find((inv) => inv.id === invoiceId || inv.invoiceNumber === invoiceId);
+      setInvoice(found || null);
+      setIsLoading(false);
     };
 
     loadInvoiceDetail();
@@ -107,12 +107,32 @@ export default function InvoiceDetailPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  if (!invoice) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex items-center justify-center p-4">
         <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-slate-500 text-sm">Chargement de la facture...</p>
-          <Link href="/invoices" className="text-xs text-blue-600 font-semibold underline">
+        </div>
+      </div>
+    );
+  }
+
+  if (!invoice) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex items-center justify-center p-4">
+        <div className="text-center space-y-3 max-w-sm">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+            <FileText className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">Facture introuvable</h2>
+          <p className="text-slate-500 text-xs">
+            Cette facture n&apos;existe pas ou a été définitivement supprimée de votre compte.
+          </p>
+          <Link
+            href="/invoices"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+          >
             Retour aux factures
           </Link>
         </div>

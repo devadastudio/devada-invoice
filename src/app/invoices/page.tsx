@@ -80,7 +80,7 @@ export default function InvoicesListPage() {
   const { lang, t } = usePlatformLanguage();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("all-time");
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -116,12 +116,8 @@ export default function InvoicesListPage() {
       if (user?.id) {
         try {
           const dbInvoices = await fetchInvoices(user.id);
-          if (dbInvoices && dbInvoices.length > 0) {
-            setInvoices(dbInvoices);
-            saveStoredInvoices(dbInvoices);
-          } else {
-            setInvoices(getStoredInvoices());
-          }
+          setInvoices(dbInvoices || []);
+          saveStoredInvoices(dbInvoices || []);
           const dbSettings = await fetchCompanySettings(user.id);
           if (dbSettings?.currency) {
             setGlobalCurrency(dbSettings.currency);
@@ -131,7 +127,7 @@ export default function InvoicesListPage() {
           console.error("Erreur chargement Supabase:", e);
         }
       }
-      setInvoices(getStoredInvoices());
+      setInvoices([]);
       const settings = getStoredSettings();
       if (settings?.currency) {
         setGlobalCurrency(settings.currency);

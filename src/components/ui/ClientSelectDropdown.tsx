@@ -144,6 +144,12 @@ export function ClientSelectDropdown({
               )}
             </button>
 
+            {clients.length === 0 && (
+              <div className="px-3.5 py-3 text-xs text-slate-400 dark:text-slate-500 text-center italic">
+                Aucun client enregistré pour l&apos;instant
+              </div>
+            )}
+
             {/* Client List */}
             {clients.map((client) => {
               const isSelected = selectedClientId === client.id;

@@ -22,8 +22,8 @@ import {
   calculatePeriodMetricsFromInvoices,
 } from "@/lib/period-metrics";
 import { useAuth } from "@/lib/supabase/auth-context";
-import { fetchInvoices, seedDemoDataIfEmpty } from "@/lib/supabase/db";
-import { Invoice, getStoredInvoices } from "@/lib/mock-data";
+import { fetchInvoices, fetchCompanySettings } from "@/lib/supabase/db";
+import { Invoice } from "@/lib/mock-data";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -36,38 +36,37 @@ export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   useEffect(() => {
-    if (user?.id) {
-      seedDemoDataIfEmpty(user.id);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
     const loadInvoices = async () => {
       if (user?.id) {
         try {
           const dbInvoices = await fetchInvoices(user.id);
-          if (dbInvoices && dbInvoices.length > 0) {
-            setInvoices(dbInvoices);
-            return;
-          }
+          setInvoices(dbInvoices || []);
+          return;
         } catch (e) {
           console.error("Erreur chargement factures dashboard:", e);
         }
       }
-      setInvoices(getStoredInvoices());
+      setInvoices([]);
     };
 
     loadInvoices();
     window.addEventListener("invoices_updated", loadInvoices);
-    window.addEventListener("storage", loadInvoices);
     return () => {
       window.removeEventListener("invoices_updated", loadInvoices);
-      window.removeEventListener("storage", loadInvoices);
     };
   }, [user?.id]);
 
   useEffect(() => {
-    const loadCurrency = () => {
+    const loadCurrency = async () => {
+      if (user?.id) {
+        try {
+          const dbSettings = await fetchCompanySettings(user.id);
+          if (dbSettings?.currency) {
+            setGlobalCurrency(dbSettings.currency);
+            return;
+          }
+        } catch (e) {}
+      }
       const settings = getStoredSettings();
       if (settings?.currency) {
         setGlobalCurrency(settings.currency);
@@ -75,12 +74,10 @@ export default function DashboardPage() {
     };
     loadCurrency();
     window.addEventListener("settings_updated", loadCurrency);
-    window.addEventListener("storage", loadCurrency);
     return () => {
       window.removeEventListener("settings_updated", loadCurrency);
-      window.removeEventListener("storage", loadCurrency);
     };
-  }, []);
+  }, [user?.id]);
 
   const handlePeriodChange = (periodId: string) => {
     setSelectedPeriodId(periodId);
@@ -92,12 +89,7 @@ export default function DashboardPage() {
   };
 
   const periodStats = useMemo(() => {
-    if (invoices && invoices.length > 0) {
-      return calculatePeriodMetricsFromInvoices(invoices, selectedPeriodId);
-    }
-    return (
-      PERIOD_METRICS_MAP[selectedPeriodId] || PERIOD_METRICS_MAP["oct-2026"]
-    );
+    return calculatePeriodMetricsFromInvoices(invoices, selectedPeriodId);
   }, [invoices, selectedPeriodId]);
 
   const dynamicMetrics: MetricCard[] = useMemo(() => {

@@ -68,16 +68,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex flex-col justify-center py-12 sm:px-6 lg:px-8 selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] flex flex-col justify-center py-6 sm:py-12 px-3 sm:px-6 lg:px-8 selection:bg-blue-600 selection:text-white overflow-x-hidden">
       {/* Background radial highlight */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-blue-500/10 via-emerald-500/10 to-transparent blur-3xl rounded-full" />
       </div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center space-y-3">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center space-y-2.5 px-2">
         {/* Brand Logo */}
         <Link href="/" className="inline-flex items-center gap-2.5 group">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-0.5 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-0.5 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
             <div className="w-full h-full bg-white dark:bg-slate-900 rounded-[14px] flex items-center justify-center p-1.5 overflow-hidden">
               <img
                 src="/images/devada-logo.png"
@@ -96,16 +96,16 @@ export default function LoginPage() {
           </div>
         </Link>
 
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-2">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-1">
           Connexion à votre espace
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Gérez votre facturation conforme DGID, vos encaissements Wave et vos relances clients.
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+          Gérez votre facturation conforme, vos encaissements Wave et vos relances clients.
         </p>
       </div>
 
-      <div className="mt-7 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
-        <div className="bg-white dark:bg-slate-900 py-8 px-6 sm:px-9 shadow-soft border border-slate-200/80 dark:border-slate-800 rounded-3xl space-y-6">
+      <div className="mt-5 sm:mt-7 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-2 sm:px-0">
+        <div className="bg-white dark:bg-slate-900 py-6 sm:py-8 px-4 sm:px-9 shadow-soft border border-slate-200/80 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-5 sm:space-y-6">
           {/* Success notice after registration */}
           {registered && (
             <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-start gap-2.5">
@@ -224,7 +224,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold shadow-sm shadow-blue-500/25 transition-all disabled:opacity-60 disabled:cursor-not-allowed mt-2 min-h-[44px]"
             >
               {isLoading ? (
                 <>
