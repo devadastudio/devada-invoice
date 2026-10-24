@@ -42,6 +42,12 @@ import {
   DEFAULT_WHATSAPP_TEMPLATE_EN,
   DEFAULT_WHATSAPP_TEMPLATE_IT,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import {
+  fetchCompanySettings,
+  saveCompanySettings,
+  uploadCompanyAsset,
+} from "@/lib/supabase/db";
 import {
   saveStoredLanguage,
   SUPPORTED_LANGUAGES,
@@ -60,6 +66,7 @@ type SettingsTab =
   | "notifications";
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
@@ -69,8 +76,23 @@ export default function SettingsPage() {
   const [whatsappEditLang, setWhatsappEditLang] = useState<AppLanguage>("fr");
 
   useEffect(() => {
-    setSettings(getStoredSettings());
-  }, []);
+    const load = async () => {
+      if (user?.id) {
+        try {
+          const dbSettings = await fetchCompanySettings(user.id);
+          if (dbSettings) {
+            setSettings(dbSettings);
+            saveStoredSettings(dbSettings);
+            return;
+          }
+        } catch (e) {
+          console.error("Erreur chargement settings Supabase:", e);
+        }
+      }
+      setSettings(getStoredSettings());
+    };
+    load();
+  }, [user?.id]);
 
   const handleChange = <K extends keyof CompanySettings>(key: K, value: CompanySettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -145,9 +167,17 @@ export default function SettingsPage() {
         return;
       }
       const reader = new FileReader();
-      reader.onload = () => {
-        handleChange("signatureImageData", reader.result as string);
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        handleChange("signatureImageData", dataUrl);
         handleChange("signatureType", "image");
+
+        if (user?.id) {
+          const uploadRes = await uploadCompanyAsset(file, user.id, "signatures");
+          if (uploadRes.url) {
+            handleChange("signatureImageData", uploadRes.url);
+          }
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -166,8 +196,17 @@ export default function SettingsPage() {
         return;
       }
       const reader = new FileReader();
-      reader.onload = () => {
-        handleChange("companyLogo", reader.result as string);
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        handleChange("companyLogo", dataUrl);
+
+        if (user?.id) {
+          const uploadRes = await uploadCompanyAsset(file, user.id, "logos");
+          if (uploadRes.url) {
+            handleChange("companyLogo", uploadRes.url);
+          }
+        }
+
         setToastMessage("Logo de l'entreprise chargé avec succès !");
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
@@ -183,21 +222,25 @@ export default function SettingsPage() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      saveStoredSettings(settings);
-      saveStoredLanguage(settings.defaultLanguage || "fr");
-      setIsSaving(false);
-      setToastMessage("Paramètres enregistrés avec succès !");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3500);
-    }, 400);
+    if (user?.id) {
+      await saveCompanySettings(settings, user.id);
+    }
+    saveStoredSettings(settings);
+    saveStoredLanguage(settings.defaultLanguage || "fr");
+    setIsSaving(false);
+    setToastMessage("Paramètres enregistrés avec succès !");
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3500);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (confirm("Voulez-vous réinitialiser tous les paramètres aux valeurs par défaut ?")) {
       setSettings(DEFAULT_SETTINGS);
+      if (user?.id) {
+        await saveCompanySettings(DEFAULT_SETTINGS, user.id);
+      }
       saveStoredSettings(DEFAULT_SETTINGS);
       setToastMessage("Paramètres réinitialisés avec succès");
       setShowToast(true);

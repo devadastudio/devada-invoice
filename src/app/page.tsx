@@ -18,14 +18,23 @@ import { MetricCard, getStoredSettings } from "@/lib/mock-data";
 import { formatFCFA, formatAmountWithCurrency } from "@/lib/utils";
 import { usePlatformLanguage } from "@/lib/i18n";
 import { PERIOD_METRICS_MAP } from "@/lib/period-metrics";
+import { useAuth } from "@/lib/supabase/auth-context";
+import { seedDemoDataIfEmpty } from "@/lib/supabase/db";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { lang, t } = usePlatformLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const [selectedPeriodId, setSelectedPeriodId] = useState("oct-2026");
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [globalCurrency, setGlobalCurrency] = useState<string>("FCFA");
+
+  useEffect(() => {
+    if (user?.id) {
+      seedDemoDataIfEmpty(user.id);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     const loadCurrency = () => {

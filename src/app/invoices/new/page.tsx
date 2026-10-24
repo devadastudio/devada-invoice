@@ -21,6 +21,13 @@ import {
   DEFAULT_SETTINGS,
   MOCK_CLIENTS,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import {
+  fetchClients,
+  fetchCompanySettings,
+  fetchInvoices,
+  saveInvoice,
+} from "@/lib/supabase/db";
 import {
   formatFCFA,
   formatDate,
@@ -69,6 +76,7 @@ interface FormItem {
 }
 
 function CreateInvoiceFormContent() {
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -103,89 +111,109 @@ function CreateInvoiceFormContent() {
   const [invoiceNumber, setInvoiceNumber] = useState("FAC-2026-0051");
 
   useEffect(() => {
-    const loadedSettings = getStoredSettings();
-    setSettings(loadedSettings);
-    if (loadedSettings.currency) {
-      setCurrency(loadedSettings.currency as SupportedCurrency);
-    }
-    const targetLang = (loadedSettings.defaultLanguage as AppLanguage) || "fr";
-    setInvoiceLanguage(targetLang);
-    setShowExchangeRate(loadedSettings.showExchangeRateOnInvoices ?? false);
+    const initData = async () => {
+      let loadedSettings = getStoredSettings();
+      let loadedInvoices = getStoredInvoices();
+      let loadedClients = getStoredClients();
 
-    const loadedInvoices = getStoredInvoices();
-    const loadedClients = getStoredClients();
-    setClients(loadedClients);
-
-    // If edit mode, populate data from the existing invoice
-    if (editId) {
-      const targetInvoice = loadedInvoices.find(
-        (inv) => inv.id === editId || inv.invoiceNumber === editId
-      );
-      if (targetInvoice) {
-        setInvoiceNumber(targetInvoice.invoiceNumber);
-        setIssueDate(targetInvoice.issueDate);
-        setDueDate(targetInvoice.dueDate);
-        if (targetInvoice.paymentMethod) setPaymentMethod(targetInvoice.paymentMethod);
-        if (targetInvoice.notes) setNotes(targetInvoice.notes);
-        if (targetInvoice.currency) setCurrency(targetInvoice.currency as SupportedCurrency);
-        if (targetInvoice.showExchangeRate !== undefined) {
-          setShowExchangeRate(targetInvoice.showExchangeRate);
+      if (user?.id) {
+        try {
+          const [dbSettings, dbClients, dbInvoices] = await Promise.all([
+            fetchCompanySettings(user.id),
+            fetchClients(user.id),
+            fetchInvoices(user.id),
+          ]);
+          if (dbSettings) loadedSettings = dbSettings;
+          if (dbClients && dbClients.length > 0) loadedClients = dbClients;
+          if (dbInvoices && dbInvoices.length > 0) loadedInvoices = dbInvoices;
+        } catch (err) {
+          console.error("Erreur chargement Supabase dans /invoices/new:", err);
         }
-        if (targetInvoice.language) {
-          setInvoiceLanguage(targetInvoice.language as AppLanguage);
-        }
+      }
 
-        // Find matched client
-        const matched = loadedClients.find(
-          (c) =>
-            c.name.toLowerCase() === targetInvoice.clientName.toLowerCase() ||
-            (targetInvoice.clientEmail && c.email.toLowerCase() === targetInvoice.clientEmail.toLowerCase())
+      setSettings(loadedSettings);
+      if (loadedSettings.currency) {
+        setCurrency(loadedSettings.currency as SupportedCurrency);
+      }
+      const targetLang = (loadedSettings.defaultLanguage as AppLanguage) || "fr";
+      setInvoiceLanguage(targetLang);
+      setShowExchangeRate(loadedSettings.showExchangeRateOnInvoices ?? false);
+      setClients(loadedClients);
+
+      // If edit mode, populate data from the existing invoice
+      if (editId) {
+        const targetInvoice = loadedInvoices.find(
+          (inv) => inv.id === editId || inv.invoiceNumber === editId
         );
-        if (matched) {
-          setSelectedClientId(matched.id);
-        }
+        if (targetInvoice) {
+          setInvoiceNumber(targetInvoice.invoiceNumber);
+          setIssueDate(targetInvoice.issueDate);
+          setDueDate(targetInvoice.dueDate);
+          if (targetInvoice.paymentMethod) setPaymentMethod(targetInvoice.paymentMethod);
+          if (targetInvoice.notes) setNotes(targetInvoice.notes);
+          if (targetInvoice.currency) setCurrency(targetInvoice.currency as SupportedCurrency);
+          if (targetInvoice.showExchangeRate !== undefined) {
+            setShowExchangeRate(targetInvoice.showExchangeRate);
+          }
+          if (targetInvoice.language) {
+            setInvoiceLanguage(targetInvoice.language as AppLanguage);
+          }
 
-        // Items
-        if (targetInvoice.items && targetInvoice.items.length > 0) {
-          setItems(
-            targetInvoice.items.map((it) => ({
-              id: it.id,
-              description: it.description,
-              quantity: it.quantity,
-              unitPrice: it.unitPrice,
-              taxRate: it.taxRate || 18,
-            }))
+          // Find matched client
+          const matched = loadedClients.find(
+            (c) =>
+              c.name.toLowerCase() === targetInvoice.clientName.toLowerCase() ||
+              (targetInvoice.clientEmail && c.email.toLowerCase() === targetInvoice.clientEmail.toLowerCase())
           );
-        }
+          if (matched) {
+            setSelectedClientId(matched.id);
+          }
 
-        // Discount
-        if (targetInvoice.discountAmount && targetInvoice.amountHT) {
-          setHasDiscount(true);
-          const pct = Math.round((targetInvoice.discountAmount / targetInvoice.amountHT) * 100);
-          setDiscountPercent(pct || 5);
+          // Items
+          if (targetInvoice.items && targetInvoice.items.length > 0) {
+            setItems(
+              targetInvoice.items.map((it) => ({
+                id: it.id,
+                description: it.description,
+                quantity: it.quantity,
+                unitPrice: it.unitPrice,
+                taxRate: it.taxRate || 18,
+              }))
+            );
+          }
+
+          // Discount
+          if (targetInvoice.discountAmount && targetInvoice.amountHT) {
+            setHasDiscount(true);
+            const pct = Math.round((targetInvoice.discountAmount / targetInvoice.amountHT) * 100);
+            setDiscountPercent(pct || 5);
+          }
+          return;
         }
-        return;
       }
-    }
 
-    // New invoice: synchronized with footerLegalText from settings (Facturation & TVA)
-    const baseFooter = loadedSettings.footerLegalText || DEFAULT_SETTINGS.footerLegalText;
-    setNotes(targetLang === "fr" ? baseFooter : translateInvoiceText(baseFooter, targetLang, "fr"));
+      // New invoice: synchronized with footerLegalText from settings (Facturation & TVA)
+      const baseFooter = loadedSettings.footerLegalText || DEFAULT_SETTINGS.footerLegalText;
+      setNotes(targetLang === "fr" ? baseFooter : translateInvoiceText(baseFooter, targetLang, "fr"));
 
-    // Default: autogenerate continuous sequential number
-    let maxNum = 50;
-    loadedInvoices.forEach((inv) => {
-      const match = inv.invoiceNumber.match(/FAC-(\d{4})-(\d+)/);
-      if (match && match[2]) {
-        const val = parseInt(match[2], 10);
-        if (!isNaN(val) && val > maxNum) {
-          maxNum = val;
+      // Default: autogenerate continuous sequential number
+      let maxNum = loadedSettings.nextInvoiceSequence ? loadedSettings.nextInvoiceSequence - 1 : 50;
+      loadedInvoices.forEach((inv) => {
+        const match = inv.invoiceNumber.match(/FAC-(\d{4})-(\d+)/);
+        if (match && match[2]) {
+          const val = parseInt(match[2], 10);
+          if (!isNaN(val) && val > maxNum) {
+            maxNum = val;
+          }
         }
-      }
-    });
-    const nextSeq = maxNum + 1;
-    setInvoiceNumber(`FAC-2026-${String(nextSeq).padStart(4, "0")}`);
-  }, [editId]);
+      });
+      const nextSeq = maxNum + 1;
+      const prefix = loadedSettings.invoicePrefix || "FAC-";
+      setInvoiceNumber(`${prefix}2026-${String(nextSeq).padStart(4, "0")}`);
+    };
+
+    initData();
+  }, [editId, user?.id]);
 
   // Form State
   const [paymentMethod, setPaymentMethod] = useState("Wave Business");
@@ -393,7 +421,7 @@ function CreateInvoiceFormContent() {
   };
 
   // Submit invoice
-  const handleSaveInvoice = (status: "draft" | "sent") => {
+  const handleSaveInvoice = async (status: "draft" | "sent") => {
     if (!selectedClient) {
       setErrorMessage("Veuillez sélectionner un client destinataire avant d'enregistrer.");
       setTimeout(() => setErrorMessage(null), 3500);
@@ -416,40 +444,49 @@ function CreateInvoiceFormContent() {
 
     if (isEditMode) {
       const existing = getStoredInvoices();
+      const invoiceToUpdate = existing.find(
+        (inv) => inv.id === editId || inv.invoiceNumber === invoiceNumber
+      );
+      const updatedInvoice: Invoice = {
+        ...(invoiceToUpdate || ({} as Invoice)),
+        id: editId || invoiceToUpdate?.id || `inv-${Date.now()}`,
+        invoiceNumber,
+        clientName: selectedClient.name,
+        clientEmail: selectedClient.email,
+        clientPhone: selectedClient.phone,
+        clientCity: selectedClient.city,
+        clientAddress: selectedClient.address,
+        clientNinea: selectedClient.ninea,
+        clientAvatarColor: selectedClient.avatarBg,
+        issueDate,
+        dueDate,
+        amountHT: amountHT_FCFA,
+        discountAmount: discountAmount_FCFA,
+        taxAmount: taxAmount_FCFA,
+        amountTTC: amountTTC_FCFA,
+        balanceDue: Math.max(0, amountTTC_FCFA - (invoiceToUpdate?.amountPaid || 0)),
+        items: items.map((it) => ({
+          id: it.id,
+          description: it.description || "Prestation de service",
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          taxRate: it.taxRate,
+          amount: Math.round(it.quantity * it.unitPrice * 100) / 100,
+        })),
+        notes: invoiceLanguage === "fr" ? notes : translatedNotes,
+        paymentMethod,
+        currency,
+        appliedRate: rateToApply,
+        showExchangeRate,
+        language: invoiceLanguage,
+      };
+
+      if (user?.id) {
+        await saveInvoice(updatedInvoice, user.id);
+      }
+
       const updatedList = existing.map((inv) =>
-        inv.id === editId || inv.invoiceNumber === invoiceNumber
-          ? {
-              ...inv,
-              clientName: selectedClient.name,
-              clientEmail: selectedClient.email,
-              clientPhone: selectedClient.phone,
-              clientCity: selectedClient.city,
-              clientAddress: selectedClient.address,
-              clientNinea: selectedClient.ninea,
-              clientAvatarColor: selectedClient.avatarBg,
-              issueDate,
-              dueDate,
-              amountHT: amountHT_FCFA,
-              discountAmount: discountAmount_FCFA,
-              taxAmount: taxAmount_FCFA,
-              amountTTC: amountTTC_FCFA,
-              balanceDue: Math.max(0, amountTTC_FCFA - (inv.amountPaid || 0)),
-              items: items.map((it) => ({
-                id: it.id,
-                description: it.description || "Prestation de service",
-                quantity: it.quantity,
-                unitPrice: it.unitPrice,
-                taxRate: it.taxRate,
-                amount: Math.round(it.quantity * it.unitPrice * 100) / 100,
-              })),
-              notes: invoiceLanguage === "fr" ? notes : translatedNotes,
-              paymentMethod,
-              currency,
-              appliedRate: rateToApply,
-              showExchangeRate,
-              language: invoiceLanguage,
-            }
-          : inv
+        inv.id === editId || inv.invoiceNumber === invoiceNumber ? updatedInvoice : inv
       );
       saveStoredInvoices(updatedList);
 
@@ -495,14 +532,16 @@ function CreateInvoiceFormContent() {
       language: invoiceLanguage,
     };
 
+    if (user?.id) {
+      const res = await saveInvoice(newInvoice, user.id);
+      if (res.success && res.id) {
+        newInvoice.id = res.id;
+      }
+    }
+
     // Save to stored invoices
     const existing = getStoredInvoices();
-    if (isEditMode && editId) {
-      const updated = existing.map((inv) => (inv.id === editId ? newInvoice : inv));
-      saveStoredInvoices(updated);
-    } else {
-      saveStoredInvoices([newInvoice, ...existing]);
-    }
+    saveStoredInvoices([newInvoice, ...existing]);
 
     setToastMessage(
       isEditMode

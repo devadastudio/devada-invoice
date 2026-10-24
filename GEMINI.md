@@ -234,20 +234,41 @@ Tous les avatars utilisent une palette saturée à fort contraste garantissant u
 
 ---
 
-## 6. Gestion des Données & Persistance Locale
+## 6. Architecture Backend Full-Stack Supabase
 
-Le projet fonctionne avec une couche de données hybride optimisée pour les démonstrations et les SaaS légers :
-- **Données initiales complètes** : Initialisées depuis `MOCK_INVOICES`, `MOCK_CLIENTS`, `DEFAULT_SETTINGS` et `MOCK_NOTIFICATIONS`.
-- **Persistance `localStorage`** :
-  - Factures : `devada_invoices`
-  - Clients : `devada_clients`
-  - Paramètres entreprise : `devada_company_settings`
-  - Notifications : `devada_notifications`
-  - Thème : `devada_theme`
-  - Langue d'interface : `devada_lang`
-- **Événements personnalisés de synchronisation** :
-  - Chaque modification d'état déclenche `window.dispatchEvent(new Event("invoices_updated"))` ou `"settings_updated"`.
-  - Les composants abonnés répercutent instantanément les mises à jour sans nécessiter de rechargement de page.
+L'application est 100% Full-Stack et connectée à **Supabase** (PostgreSQL 17, région `eu-west-3`) avec une synchronisation locale transparente :
+
+### 6.1. Modèle de Données & Tables PostgreSQL
+- **`profiles`** : Identité utilisateur (nom complet, email, téléphone, rôle, avatar, horodatages). Lié directement à `auth.users(id) ON DELETE CASCADE`.
+- **`company_settings`** : Profil d'entreprise complet (raison sociale, forme SARL/SAS/SA/EI, NINEA, RCCM, adresse, ville, devises, taux TVA 18%, coordonnées Wave / Orange Money / Banque, logo et signature).
+- **`clients`** : Portefeuille client sénégalais et international (raison sociale, email, téléphone, WhatsApp, ville, NINEA, RCCM, avatar).
+- **`invoices`** : Factures émises (numéro séquentiel, montants HT/TVA/TTC en FCFA, statuts `paid`/`sent`/`overdue`/`draft`, devises, langue, conditions).
+- **`invoice_items`** : Lignes de prestations vectorielles (désignation, quantité, prix unitaire, TVA 18%, total).
+- **`notifications`** : Flux de notifications et alertes temps réel.
+
+### 6.2. Sécurité & Row Level Security (RLS)
+- **100% des tables ont RLS activé** (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`).
+- Politiques strictes basées sur `auth.uid() = user_id` : chaque utilisateur ne peut lire, insérer, modifier ou supprimer que ses propres données.
+- Fonctions triggers durcies avec `SET search_path = public`.
+
+### 6.3. Authentification & Onboarding Obligatoire en 2 Étapes
+- **Écran de Connexion (`/auth/login`)** : Authentification par email/mot de passe avec gestion de session SSR.
+- **Onboarding Obligatoire (`/auth/register`)** :
+  - *Étape 1 : Identifiants personnels* (Nom complet, Email, Mot de passe).
+  - *Étape 2 : Profil Légal Entreprise* (Raison sociale, Forme juridique, NINEA sénégalais, RCCM, Ville, Numéro Wave/Orange Money).
+  - Un trigger PostgreSQL `on_auth_user_created` alimente automatiquement `profiles` et `company_settings` dès la validation.
+- **Protection des Routes (`middleware.ts`)** :
+  - Redirection automatique vers `/auth/login` pour tout utilisateur non connecté tentant d'accéder à l'application.
+  - Rafraîchissement automatique des JWT tokens côté serveur via `@supabase/ssr`.
+
+### 6.4. Supabase Storage (`company-assets`)
+- Bucket public `company-assets` sécurisé par 4 politiques RLS pour l'hébergement des logos d'entreprise et signatures officielles.
+
+### 6.5. Couche d'Accès aux Données (`src/lib/supabase/db.ts`) & Cache Local
+- Fonctions CRUD typées : `fetchInvoices`, `saveInvoice`, `updateInvoiceStatus`, `deleteInvoice`, `fetchClients`, `saveClient`, `deleteClient`, `fetchCompanySettings`, `saveCompanySettings`, `uploadCompanyAsset`.
+- Initialisation déterministe `seedDemoDataIfEmpty(userId)` pour les nouveaux comptes.
+- Mise en cache instantanée dans `localStorage` pour éliminer toute latence d'affichage et offrir un fonctionnement résilient.
+
 
 ---
 

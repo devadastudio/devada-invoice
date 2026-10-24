@@ -37,6 +37,14 @@ import {
   getNextInvoiceNumber,
   getStoredSettings,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import {
+  fetchInvoices,
+  updateInvoiceStatus,
+  deleteInvoice,
+  saveInvoice,
+  fetchCompanySettings,
+} from "@/lib/supabase/db";
 import { formatFCFA, formatAmountWithCurrency, formatDate, cn } from "@/lib/utils";
 import { isInvoiceInPeriod, PERIOD_METRICS_MAP } from "@/lib/period-metrics";
 import { Pagination } from "@/components/ui/Pagination";
@@ -69,6 +77,7 @@ interface RecentInvoicesProps {
 }
 
 export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
+  const { user } = useAuth();
   const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -103,7 +112,25 @@ export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
 
   // Load stored invoices on mount and listen to updates
   useEffect(() => {
-    const load = () => {
+    const load = async () => {
+      if (user?.id) {
+        try {
+          const dbInvoices = await fetchInvoices(user.id);
+          if (dbInvoices && dbInvoices.length > 0) {
+            setInvoices(dbInvoices);
+            saveStoredInvoices(dbInvoices);
+          } else {
+            setInvoices(getStoredInvoices());
+          }
+          const dbSettings = await fetchCompanySettings(user.id);
+          if (dbSettings?.currency) {
+            setGlobalCurrency(dbSettings.currency);
+          }
+          return;
+        } catch (e) {
+          console.error("Erreur chargement Supabase dans RecentInvoices:", e);
+        }
+      }
       setInvoices(getStoredInvoices());
       const settings = getStoredSettings();
       if (settings?.currency) {
@@ -119,7 +146,7 @@ export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
       window.removeEventListener("settings_updated", load);
       window.removeEventListener("storage", load);
     };
-  }, []);
+  }, [user?.id]);
 
   // Reset to page 1 on filter, sort, search, or period change
   useEffect(() => {
@@ -179,9 +206,14 @@ export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
   };
 
   // Actions handlers
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = async () => {
     if (!statusChangeTarget) return;
     const { invoice, newStatus } = statusChangeTarget;
+
+    if (user?.id) {
+      await updateInvoiceStatus(invoice.id, newStatus, invoice.amountTTC, user.id);
+    }
+
     const updated = invoices.map((inv) => {
       if (inv.id !== invoice.id) return inv;
       let amountPaid = inv.amountPaid;
@@ -213,7 +245,11 @@ export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
     setStatusChangeTarget(null);
   };
 
-  const handleMarkAsPaid = (invoice: Invoice) => {
+  const handleMarkAsPaid = async (invoice: Invoice) => {
+    if (user?.id) {
+      await updateInvoiceStatus(invoice.id, "paid", invoice.amountTTC, user.id);
+    }
+
     const updated = invoices.map((inv) =>
       inv.id === invoice.id
         ? {
@@ -230,7 +266,7 @@ export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
     showToast(`Paiement de ${formatAmountWithCurrency(invoice.amountTTC, globalCurrency)} enregistré pour ${invoice.invoiceNumber}`);
   };
 
-  const handleDuplicate = (invoice: Invoice) => {
+  const handleDuplicate = async (invoice: Invoice) => {
     const nextSeq = getNextInvoiceNumber();
     const today = new Date().toISOString().split("T")[0];
     const newInvoice: Invoice = {
@@ -243,6 +279,14 @@ export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
       amountPaid: 0,
       balanceDue: invoice.amountTTC,
     };
+
+    if (user?.id) {
+      const res = await saveInvoice(newInvoice, user.id);
+      if (res.success && res.id) {
+        newInvoice.id = res.id;
+      }
+    }
+
     const updated = [newInvoice, ...invoices];
     setInvoices(updated);
     saveStoredInvoices(updated);
@@ -250,8 +294,13 @@ export function RecentInvoices({ selectedPeriodId }: RecentInvoicesProps = {}) {
     showToast(`Facture dupliquée avec succès : ${newInvoice.invoiceNumber} (Brouillon)`);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteInvoiceTarget) return;
+
+    if (user?.id) {
+      await deleteInvoice(deleteInvoiceTarget.id, user.id);
+    }
+
     const updated = invoices.filter((inv) => inv.id !== deleteInvoiceTarget.id);
     setInvoices(updated);
     saveStoredInvoices(updated);

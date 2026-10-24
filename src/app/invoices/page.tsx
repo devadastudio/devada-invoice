@@ -14,6 +14,14 @@ import {
   getNextInvoiceNumber,
   getStoredSettings,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import {
+  fetchInvoices,
+  updateInvoiceStatus,
+  deleteInvoice,
+  saveInvoice,
+  fetchCompanySettings,
+} from "@/lib/supabase/db";
 import { isInvoiceInPeriod } from "@/lib/period-metrics";
 import { formatFCFA, formatAmountWithCurrency, formatDate, cn } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
@@ -68,6 +76,7 @@ const CLIENT_AVATARS_PALETTE = [
 ];
 
 export default function InvoicesListPage() {
+  const { user } = useAuth();
   const { lang, t } = usePlatformLanguage();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -103,7 +112,25 @@ export default function InvoicesListPage() {
 
   // Load invoices on mount and listen to updates
   useEffect(() => {
-    const load = () => {
+    const load = async () => {
+      if (user?.id) {
+        try {
+          const dbInvoices = await fetchInvoices(user.id);
+          if (dbInvoices && dbInvoices.length > 0) {
+            setInvoices(dbInvoices);
+            saveStoredInvoices(dbInvoices);
+          } else {
+            setInvoices(getStoredInvoices());
+          }
+          const dbSettings = await fetchCompanySettings(user.id);
+          if (dbSettings?.currency) {
+            setGlobalCurrency(dbSettings.currency);
+          }
+          return;
+        } catch (e) {
+          console.error("Erreur chargement Supabase:", e);
+        }
+      }
       setInvoices(getStoredInvoices());
       const settings = getStoredSettings();
       if (settings?.currency) {
@@ -119,7 +146,7 @@ export default function InvoicesListPage() {
       window.removeEventListener("settings_updated", load);
       window.removeEventListener("storage", load);
     };
-  }, []);
+  }, [user?.id]);
 
   // Reset page when filter, search or period changes
   useEffect(() => {
@@ -170,9 +197,14 @@ export default function InvoicesListPage() {
   };
 
   // Actions handlers
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = async () => {
     if (!statusChangeTarget) return;
     const { invoice, newStatus } = statusChangeTarget;
+
+    if (user?.id) {
+      await updateInvoiceStatus(invoice.id, newStatus, invoice.amountTTC, user.id);
+    }
+
     const updated = invoices.map((inv) => {
       if (inv.id !== invoice.id) return inv;
       let amountPaid = inv.amountPaid;
@@ -204,7 +236,11 @@ export default function InvoicesListPage() {
     setStatusChangeTarget(null);
   };
 
-  const handleMarkAsPaid = (invoice: Invoice) => {
+  const handleMarkAsPaid = async (invoice: Invoice) => {
+    if (user?.id) {
+      await updateInvoiceStatus(invoice.id, "paid", invoice.amountTTC, user.id);
+    }
+
     const updated = invoices.map((inv) =>
       inv.id === invoice.id
         ? {
@@ -221,7 +257,7 @@ export default function InvoicesListPage() {
     showToast(`Paiement de ${formatAmountWithCurrency(invoice.amountTTC, globalCurrency)} enregistré pour ${invoice.invoiceNumber}`);
   };
 
-  const handleDuplicate = (invoice: Invoice) => {
+  const handleDuplicate = async (invoice: Invoice) => {
     const nextSeqNumber = getNextInvoiceNumber();
     const today = new Date().toISOString().split("T")[0];
     const newInvoice: Invoice = {
@@ -234,6 +270,14 @@ export default function InvoicesListPage() {
       amountPaid: 0,
       balanceDue: invoice.amountTTC,
     };
+
+    if (user?.id) {
+      const res = await saveInvoice(newInvoice, user.id);
+      if (res.success && res.id) {
+        newInvoice.id = res.id;
+      }
+    }
+
     const updated = [newInvoice, ...invoices];
     setInvoices(updated);
     saveStoredInvoices(updated);
@@ -241,8 +285,13 @@ export default function InvoicesListPage() {
     showToast(`Facture dupliquée avec succès : ${newInvoice.invoiceNumber} (Brouillon)`);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteInvoiceTarget) return;
+
+    if (user?.id) {
+      await deleteInvoice(deleteInvoiceTarget.id, user.id);
+    }
+
     const updated = invoices.filter((inv) => inv.id !== deleteInvoiceTarget.id);
     setInvoices(updated);
     saveStoredInvoices(updated);

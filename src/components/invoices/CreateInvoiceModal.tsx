@@ -21,6 +21,8 @@ import {
   saveStoredInvoices,
   getNextInvoiceNumber,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import { saveInvoice } from "@/lib/supabase/db";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { AppLanguage, translateItemDescription } from "@/lib/i18n";
 
@@ -39,6 +41,7 @@ interface NewItem {
 }
 
 export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoiceModalProps) {
+  const { user } = useAuth();
   const router = useRouter();
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -105,7 +108,7 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
   const taxAmount = Math.round(subtotalHT * 0.18);
   const totalTTC = subtotalHT + taxAmount;
 
-  const handleSave = (status: "draft" | "sent") => {
+  const handleSave = async (status: "draft" | "sent") => {
     if (!clientName.trim()) {
       alert("Veuillez renseigner le nom du client.");
       return;
@@ -139,6 +142,13 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
       paymentMethod,
       currency: "XOF",
     };
+
+    if (user?.id) {
+      const res = await saveInvoice(newInv, user.id);
+      if (res.success && res.id) {
+        newInv.id = res.id;
+      }
+    }
 
     saveStoredInvoices([newInv, ...getStoredInvoices()]);
     if (onCreated) onCreated();

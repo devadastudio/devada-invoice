@@ -16,6 +16,13 @@ import {
   CompanySettings,
   DEFAULT_SETTINGS,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import {
+  fetchInvoiceById,
+  fetchCompanySettings,
+  updateInvoiceStatus,
+  deleteInvoice,
+} from "@/lib/supabase/db";
 import { formatFCFA, formatDate, formatCurrency, SupportedCurrency, cn } from "@/lib/utils";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { generateAndDownloadInvoicePDF, printInvoicePDF } from "@/lib/pdf-generator";
@@ -48,6 +55,7 @@ import {
 } from "lucide-react";
 
 export default function InvoiceDetailPage() {
+  const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
   const invoiceId = params?.id as string;
@@ -64,13 +72,35 @@ export default function InvoiceDetailPage() {
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   useEffect(() => {
-    setSettings(getStoredSettings());
-    const list = getStoredInvoices();
-    const found = list.find((inv) => inv.id === invoiceId) || list[0];
-    if (found) {
-      setInvoice(found);
-    }
-  }, [invoiceId]);
+    const loadInvoiceDetail = async () => {
+      if (user?.id && invoiceId) {
+        try {
+          const [dbInvoice, dbSettings] = await Promise.all([
+            fetchInvoiceById(invoiceId, user.id),
+            fetchCompanySettings(user.id),
+          ]);
+          if (dbInvoice) {
+            setInvoice(dbInvoice);
+          }
+          if (dbSettings) {
+            setSettings(dbSettings);
+          }
+          if (dbInvoice) return;
+        } catch (err) {
+          console.error("Erreur chargement facture Supabase:", err);
+        }
+      }
+
+      setSettings(getStoredSettings());
+      const list = getStoredInvoices();
+      const found = list.find((inv) => inv.id === invoiceId) || list[0];
+      if (found) {
+        setInvoice(found);
+      }
+    };
+
+    loadInvoiceDetail();
+  }, [invoiceId, user?.id]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -97,7 +127,11 @@ export default function InvoiceDetailPage() {
   };
 
   // Status Change Handler
-  const handleChangeStatus = (newStatus: InvoiceStatus) => {
+  const handleChangeStatus = async (newStatus: InvoiceStatus) => {
+    if (user?.id) {
+      await updateInvoiceStatus(invoice.id, newStatus, invoice.amountTTC, user.id);
+    }
+
     const list = getStoredInvoices();
     const updated = list.map((inv) =>
       inv.id === invoice.id
@@ -125,8 +159,13 @@ export default function InvoiceDetailPage() {
   };
 
   // Delete handler with confirmation modal
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!invoice) return;
+
+    if (user?.id) {
+      await deleteInvoice(invoice.id, user.id);
+    }
+
     const list = getStoredInvoices();
     const updated = list.filter((inv) => inv.id !== invoice.id);
     saveStoredInvoices(updated);

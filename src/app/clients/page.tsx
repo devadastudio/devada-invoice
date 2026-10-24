@@ -14,6 +14,14 @@ import {
   saveStoredClients,
   getStoredSettings,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import {
+  fetchClients,
+  saveClient,
+  deleteClient,
+  fetchInvoices,
+  seedDemoDataIfEmpty,
+} from "@/lib/supabase/db";
 import { formatFCFA, formatAmountWithCurrency, formatDate, cn } from "@/lib/utils";
 import {
   exportClientsToExcel,
@@ -61,6 +69,7 @@ type FilterMemo = "all" | "active" | "inactive" | "due";
 const CLIENTS_PER_PAGE = 6;
 
 export default function ClientsPage() {
+  const { user } = useAuth();
   const { lang, t } = usePlatformLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
@@ -123,8 +132,50 @@ export default function ClientsPage() {
 
   const [globalCurrency, setGlobalCurrency] = useState<string>("FCFA");
 
-  useEffect(() => {
+  const loadClientsData = async () => {
+    if (user?.id) {
+      try {
+        const [dbClients, invoices] = await Promise.all([
+          fetchClients(user.id),
+          fetchInvoices(user.id),
+        ]);
+
+        if (dbClients.length > 0) {
+          const enriched = dbClients.map((c) => {
+            const clientInvs = invoices.filter(
+              (inv) =>
+                inv.clientName?.toLowerCase().trim() === c.name?.toLowerCase().trim() ||
+                (inv as any).clientId === c.id
+            );
+            const totalBilled = clientInvs.reduce(
+              (sum, inv) => sum + (inv.amountTTC || 0),
+              0
+            );
+            const balanceDue = clientInvs.reduce(
+              (sum, inv) => sum + (inv.balanceDue || 0),
+              0
+            );
+            return {
+              ...c,
+              totalBilled,
+              balanceDue,
+              invoicesCount: clientInvs.length,
+            };
+          });
+          setClients(enriched);
+          saveStoredClients(enriched);
+          return;
+        }
+      } catch (err) {
+        console.error("Erreur chargement clients Supabase:", err);
+      }
+    }
+    // Fallback données locales / démo
     setClients(getStoredClients());
+  };
+
+  useEffect(() => {
+    loadClientsData();
     const loadSettings = () => {
       const settings = getStoredSettings();
       if (settings?.currency) {
@@ -133,17 +184,19 @@ export default function ClientsPage() {
     };
     loadSettings();
     const handleClientsUpdated = () => {
-      setClients(getStoredClients());
+      loadClientsData();
     };
     window.addEventListener("clients_updated", handleClientsUpdated);
+    window.addEventListener("invoices_updated", handleClientsUpdated);
     window.addEventListener("settings_updated", loadSettings);
     window.addEventListener("storage", loadSettings);
     return () => {
       window.removeEventListener("clients_updated", handleClientsUpdated);
+      window.removeEventListener("invoices_updated", handleClientsUpdated);
       window.removeEventListener("settings_updated", loadSettings);
       window.removeEventListener("storage", loadSettings);
     };
-  }, []);
+  }, [user?.id]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -192,8 +245,13 @@ export default function ClientsPage() {
   };
 
   // Confirmed Delete client
-  const handleConfirmDeleteClient = () => {
+  const handleConfirmDeleteClient = async () => {
     if (!deleteTargetClient) return;
+
+    if (user?.id) {
+      await deleteClient(deleteTargetClient.id, user.id);
+    }
+
     const updated = clients.filter((c) => c.id !== deleteTargetClient.id);
     setClients(updated);
     saveStoredClients(updated);
@@ -202,7 +260,7 @@ export default function ClientsPage() {
   };
 
   // Save Client (Add or Edit)
-  const handleSaveClient = (e: React.FormEvent) => {
+  const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim()) {
       alert("Veuillez renseigner au minimum la raison sociale et l'email du client.");
@@ -211,19 +269,28 @@ export default function ClientsPage() {
 
     if (editingClient) {
       // Update
+      const updatedClientData: Partial<Client> = {
+        id: editingClient.id,
+        name: formData.name,
+        email: formData.email,
+        emailPec: formData.emailPec.trim() || undefined,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp.trim() || undefined,
+        city: formData.city,
+        address: formData.address,
+        ninea: formData.ninea.trim() || undefined,
+        status: formData.status,
+      };
+
+      if (user?.id) {
+        await saveClient(updatedClientData, user.id);
+      }
+
       const updated = clients.map((c) =>
         c.id === editingClient.id
           ? {
               ...c,
-              name: formData.name,
-              email: formData.email,
-              emailPec: formData.emailPec.trim() || undefined,
-              phone: formData.phone,
-              whatsapp: formData.whatsapp.trim() || undefined,
-              city: formData.city,
-              address: formData.address,
-              ninea: formData.ninea.trim() || undefined,
-              status: formData.status,
+              ...updatedClientData,
               createdAt: formData.acquisitionDate || c.createdAt,
               acquisitionDate: formData.acquisitionDate || c.acquisitionDate,
             }
@@ -247,8 +314,29 @@ export default function ClientsPage() {
       showToast(`Fiche client de ${formData.name} mise à jour avec succès !`);
     } else {
       // Create new
+      const newClientPayload: Partial<Client> = {
+        name: formData.name,
+        email: formData.email,
+        emailPec: formData.emailPec.trim() || undefined,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp.trim() || undefined,
+        city: formData.city,
+        address: formData.address,
+        ninea: formData.ninea.trim() || undefined,
+        avatarBg: AVATAR_COLORS[clients.length % AVATAR_COLORS.length],
+        status: formData.status,
+      };
+
+      let newId = `client-${Date.now()}`;
+      if (user?.id) {
+        const res = await saveClient(newClientPayload, user.id);
+        if (res.success && res.id) {
+          newId = res.id;
+        }
+      }
+
       const newClient: Client = {
-        id: `client-${Date.now()}`,
+        id: newId,
         name: formData.name,
         email: formData.email,
         emailPec: formData.emailPec.trim() || undefined,
@@ -260,7 +348,7 @@ export default function ClientsPage() {
         totalBilled: 0,
         balanceDue: 0,
         invoicesCount: 0,
-        avatarBg: AVATAR_COLORS[clients.length % AVATAR_COLORS.length],
+        avatarBg: newClientPayload.avatarBg || "bg-blue-600",
         status: formData.status,
         createdAt: formData.acquisitionDate || new Date().toISOString().split("T")[0],
         acquisitionDate: formData.acquisitionDate || new Date().toISOString().split("T")[0],

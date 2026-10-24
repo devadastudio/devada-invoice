@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { CURRENT_USER } from "@/lib/mock-data";
+import { useAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
+import { uploadCompanyAsset } from "@/lib/supabase/db";
 import { cn } from "@/lib/utils";
 import {
   User,
@@ -56,6 +59,7 @@ interface UserProfileState {
 const STORAGE_KEY = "devada_user_profile";
 
 export default function ProfilePage() {
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "privacy" | "preferences">("profile");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,21 +124,59 @@ export default function ProfilePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setProfile((prev) => ({
-          ...prev,
-          ...parsed,
-          avatarImageData:
-            parsed.avatarImageData || parsed.avatarUrl || CURRENT_USER.avatarUrl || "",
-        }));
+    const loadProfile = async () => {
+      if (user?.id) {
+        try {
+          const supabase = createClient();
+          const { data: dbProfile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          if (dbProfile) {
+            setProfile((prev) => ({
+              ...prev,
+              name: dbProfile.full_name || user.user_metadata?.full_name || prev.name,
+              email: dbProfile.email || user.email || prev.email,
+              phone: dbProfile.phone || user.user_metadata?.phone || prev.phone,
+              company: user.user_metadata?.company_name || prev.company,
+              role: dbProfile.role || prev.role,
+              avatarImageData: dbProfile.avatar_url || prev.avatarImageData,
+            }));
+            return;
+          } else if (user.user_metadata) {
+            setProfile((prev) => ({
+              ...prev,
+              name: user.user_metadata.full_name || prev.name,
+              email: user.email || prev.email,
+              phone: user.user_metadata.phone || prev.phone,
+              company: user.user_metadata.company_name || prev.company,
+            }));
+          }
+        } catch (err) {
+          console.error("Erreur chargement profil Supabase:", err);
+        }
       }
-    } catch {
-      // fallback to initial profile
-    }
-  }, []);
+
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setProfile((prev) => ({
+            ...prev,
+            ...parsed,
+            avatarImageData:
+              parsed.avatarImageData || parsed.avatarUrl || CURRENT_USER.avatarUrl || "",
+          }));
+        }
+      } catch {
+        // fallback to initial profile
+      }
+    };
+
+    loadProfile();
+  }, [user?.id]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -156,9 +198,18 @@ export default function ProfilePage() {
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const base64 = event.target?.result as string;
-      const updated = { ...profile, avatarImageData: base64 };
+      let finalAvatarUrl = base64;
+
+      if (user?.id) {
+        const uploadRes = await uploadCompanyAsset(file, user.id, "logos");
+        if (uploadRes.url) {
+          finalAvatarUrl = uploadRes.url;
+        }
+      }
+
+      const updated = { ...profile, avatarImageData: finalAvatarUrl };
       setProfile(updated);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -182,9 +233,21 @@ export default function ProfilePage() {
     } catch {}
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (user?.id) {
+        const supabase = createClient();
+        await supabase.from("profiles").upsert({
+          id: user.id,
+          email: user.email || profile.email,
+          full_name: profile.name,
+          phone: profile.phone,
+          role: profile.role,
+          avatar_url: profile.avatarImageData,
+        });
+      }
+
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
       window.dispatchEvent(new Event("user_profile_updated"));
       showToast("Profil et paramètres personnels enregistrés avec succès !");
@@ -193,7 +256,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword) {
       alert("Veuillez renseigner votre mot de passe actuel.");
@@ -206,6 +269,15 @@ export default function ProfilePage() {
     if (newPassword !== confirmPassword) {
       alert("Les deux nouveaux mots de passe ne correspondent pas.");
       return;
+    }
+
+    if (user) {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        alert(`Erreur lors du changement de mot de passe: ${error.message}`);
+        return;
+      }
     }
 
     setCurrentPassword("");
