@@ -22,6 +22,8 @@ import {
   fetchInvoices,
   seedDemoDataIfEmpty,
 } from "@/lib/supabase/db";
+import { createClient } from "@/lib/supabase/client";
+import { WORLD_COUNTRIES } from "@/lib/countries";
 import { formatFCFA, formatAmountWithCurrency, formatDate, cn } from "@/lib/utils";
 import {
   exportClientsToExcel,
@@ -49,6 +51,7 @@ import {
   Calendar,
   Copy,
   Check,
+  Globe,
 } from "lucide-react";
 
 const AVATAR_COLORS = [
@@ -87,7 +90,7 @@ export default function ClientsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
-  // Form Fields (including acquisitionDate, emailPec and whatsapp)
+  // Form Fields (including acquisitionDate, emailPec, whatsapp and country)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -95,6 +98,7 @@ export default function ClientsPage() {
     phone: "",
     whatsapp: "",
     city: "",
+    country: "",
     address: "",
     ninea: "",
     status: "active" as "active" | "inactive",
@@ -133,11 +137,18 @@ export default function ClientsPage() {
   const [globalCurrency, setGlobalCurrency] = useState<string>("FCFA");
 
   const loadClientsData = async () => {
-    if (user?.id) {
+    const supabase = createClient();
+    let currentUserId = user?.id;
+    if (!currentUserId) {
+      const { data: authData } = await supabase.auth.getUser();
+      currentUserId = authData.user?.id;
+    }
+
+    if (currentUserId) {
       try {
         const [dbClients, invoices] = await Promise.all([
-          fetchClients(user.id),
-          fetchInvoices(user.id),
+          fetchClients(currentUserId),
+          fetchInvoices(currentUserId),
         ]);
 
         const enriched = (dbClients || []).map((c) => {
@@ -162,7 +173,9 @@ export default function ClientsPage() {
           };
         });
         setClients(enriched);
-        saveStoredClients(enriched);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("devada_clients", JSON.stringify(enriched));
+        }
         return;
       } catch (err) {
         console.error("Erreur chargement clients Supabase:", err);
@@ -211,6 +224,7 @@ export default function ClientsPage() {
       phone: "",
       whatsapp: "",
       city: "",
+      country: "",
       address: "",
       ninea: "",
       status: "active",
@@ -228,8 +242,9 @@ export default function ClientsPage() {
       emailPec: client.emailPec || "",
       phone: client.phone,
       whatsapp: client.whatsapp || "",
-      city: client.city,
-      address: client.address,
+      city: client.city || "",
+      country: client.country || "",
+      address: client.address || "",
       ninea: client.ninea || "",
       status: client.status || "active",
       acquisitionDate: client.acquisitionDate || client.createdAt || new Date().toISOString().split("T")[0],
@@ -246,13 +261,18 @@ export default function ClientsPage() {
   const handleConfirmDeleteClient = async () => {
     if (!deleteTargetClient) return;
 
-    if (user?.id) {
-      await deleteClient(deleteTargetClient.id, user.id);
+    let currentUserId = user?.id;
+    if (!currentUserId) {
+      const supabase = createClient();
+      const { data: authData } = await supabase.auth.getUser();
+      currentUserId = authData.user?.id;
     }
 
-    const updated = clients.filter((c) => c.id !== deleteTargetClient.id);
-    setClients(updated);
-    saveStoredClients(updated);
+    if (currentUserId) {
+      await deleteClient(deleteTargetClient.id, currentUserId);
+      await loadClientsData();
+    }
+
     showToast(`Client ${deleteTargetClient.name} supprimé avec succès.`);
     setDeleteTargetClient(null);
   };
@@ -261,7 +281,19 @@ export default function ClientsPage() {
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim()) {
-      alert("Veuillez renseigner au minimum la raison sociale et l'email du client.");
+      showToast("Veuillez renseigner au minimum la raison sociale et l'email du client.");
+      return;
+    }
+
+    const supabase = createClient();
+    let currentUserId = user?.id;
+    if (!currentUserId) {
+      const { data: authData } = await supabase.auth.getUser();
+      currentUserId = authData.user?.id;
+    }
+
+    if (!currentUserId) {
+      showToast("Session expirée. Veuillez vous reconnecter.");
       return;
     }
 
@@ -269,33 +301,26 @@ export default function ClientsPage() {
       // Update
       const updatedClientData: Partial<Client> = {
         id: editingClient.id,
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
         emailPec: formData.emailPec.trim() || undefined,
-        phone: formData.phone,
+        phone: formData.phone.trim(),
         whatsapp: formData.whatsapp.trim() || undefined,
-        city: formData.city,
-        address: formData.address,
+        city: formData.city.trim() || "Dakar",
+        country: formData.country.trim() || undefined,
+        address: formData.address.trim(),
         ninea: formData.ninea.trim() || undefined,
         status: formData.status,
       };
 
-      if (user?.id) {
-        await saveClient(updatedClientData, user.id);
+      const res = await saveClient(updatedClientData, currentUserId);
+      if (!res.success) {
+        showToast(`Erreur : ${res.error || "Impossible de modifier le client"}`);
+        return;
       }
 
-      const updated = clients.map((c) =>
-        c.id === editingClient.id
-          ? {
-              ...c,
-              ...updatedClientData,
-              createdAt: formData.acquisitionDate || c.createdAt,
-              acquisitionDate: formData.acquisitionDate || c.acquisitionDate,
-            }
-          : c
-      );
-      setClients(updated);
-      saveStoredClients(updated);
+      await loadClientsData();
+
       setSuccessModalData({
         isOpen: true,
         title: "Client modifié avec succès !",
@@ -305,7 +330,8 @@ export default function ClientsPage() {
           { label: "Email professionnel", value: formData.email },
           { label: "Téléphone", value: formData.phone || "Non renseigné" },
           { label: "Date d'acquisition", value: formatDate(formData.acquisitionDate) },
-          { label: "Ville", value: formData.city },
+          { label: "Ville", value: formData.city || "Dakar" },
+          { label: "Pays", value: formData.country || "Non renseigné" },
           { label: "Statut", value: formData.status === "active" ? "Actif" : "Inactif", isHighlight: true },
         ],
       });
@@ -313,47 +339,27 @@ export default function ClientsPage() {
     } else {
       // Create new
       const newClientPayload: Partial<Client> = {
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
         emailPec: formData.emailPec.trim() || undefined,
-        phone: formData.phone,
+        phone: formData.phone.trim(),
         whatsapp: formData.whatsapp.trim() || undefined,
-        city: formData.city,
-        address: formData.address,
+        city: formData.city.trim() || "Dakar",
+        country: formData.country.trim() || undefined,
+        address: formData.address.trim(),
         ninea: formData.ninea.trim() || undefined,
         avatarBg: AVATAR_COLORS[clients.length % AVATAR_COLORS.length],
         status: formData.status,
       };
 
-      let newId = `client-${Date.now()}`;
-      if (user?.id) {
-        const res = await saveClient(newClientPayload, user.id);
-        if (res.success && res.id) {
-          newId = res.id;
-        }
+      const res = await saveClient(newClientPayload, currentUserId);
+      if (!res.success) {
+        showToast(`Erreur : ${res.error || "Impossible d'enregistrer le client"}`);
+        return;
       }
 
-      const newClient: Client = {
-        id: newId,
-        name: formData.name,
-        email: formData.email,
-        emailPec: formData.emailPec.trim() || undefined,
-        phone: formData.phone,
-        whatsapp: formData.whatsapp.trim() || undefined,
-        city: formData.city,
-        address: formData.address,
-        ninea: formData.ninea.trim() || undefined,
-        totalBilled: 0,
-        balanceDue: 0,
-        invoicesCount: 0,
-        avatarBg: newClientPayload.avatarBg || "bg-blue-600",
-        status: formData.status,
-        createdAt: formData.acquisitionDate || new Date().toISOString().split("T")[0],
-        acquisitionDate: formData.acquisitionDate || new Date().toISOString().split("T")[0],
-      };
-      const updated = [newClient, ...clients];
-      setClients(updated);
-      saveStoredClients(updated);
+      await loadClientsData();
+
       setSuccessModalData({
         isOpen: true,
         title: "Client créé avec succès !",
@@ -363,7 +369,8 @@ export default function ClientsPage() {
           { label: "Email professionnel", value: formData.email },
           { label: "Date d'acquisition", value: formatDate(formData.acquisitionDate) },
           { label: "Téléphone", value: formData.phone || "Non renseigné" },
-          { label: "Ville", value: formData.city },
+          { label: "Ville", value: formData.city || "Dakar" },
+          { label: "Pays", value: formData.country || "Non renseigné" },
           { label: "NINEA", value: formData.ninea || "Non renseigné" },
         ],
       });
@@ -399,6 +406,7 @@ export default function ClientsPage() {
         c.email.toLowerCase().includes(term) ||
         (c.emailPec && c.emailPec.toLowerCase().includes(term)) ||
         c.city.toLowerCase().includes(term) ||
+        (c.country && c.country.toLowerCase().includes(term)) ||
         (c.ninea && c.ninea.toLowerCase().includes(term)) ||
         (c.phone && c.phone.includes(term))
       );
@@ -644,7 +652,9 @@ export default function ClientsPage() {
                             <p className="font-bold text-sm text-slate-900 dark:text-white">
                               {client.name}
                             </p>
-                            <p className="text-xs text-slate-400">{client.city}</p>
+                            <p className="text-xs text-slate-400">
+                              {client.city}{client.country ? `, ${client.country}` : ""}
+                            </p>
                           </div>
                         </div>
 
@@ -943,7 +953,7 @@ export default function ClientsPage() {
                               </p>
                               {/* Ligne 2: Localité */}
                               <p className="text-[11px] text-slate-400 truncate">
-                                {client.city}
+                                {client.city}{client.country ? `, ${client.country}` : ""}
                               </p>
                               {/* Ligne 3: NINEA */}
                               {client.ninea ? (
@@ -1247,18 +1257,18 @@ export default function ClientsPage() {
                 </div>
               </div>
 
-              {/* Ville et Date d'acquisition */}
+              {/* NINEA et Date d'acquisition (au-dessus de la ville) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Ville / Commune
+                    NINEA (Optionnel)
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: Dakar - Plateau, Thiès..."
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="005489123 2G3"
+                    value={formData.ninea}
+                    onChange={(e) => setFormData({ ...formData, ninea: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
@@ -1277,37 +1287,42 @@ export default function ClientsPage() {
                 </div>
               </div>
 
+              {/* Ville et Pays côte à côte */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    NINEA (Optionnel)
+                    Ville / Commune
                   </label>
                   <input
                     type="text"
-                    placeholder="005489123 2G3"
-                    value={formData.ninea}
-                    onChange={(e) => setFormData({ ...formData, ninea: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="Ex: Dakar - Plateau, Thiès..."
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Statut du client
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Pays</span>
                   </label>
                   <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value as "active" | "inactive" })
-                    }
+                    value={formData.country}
+                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
-                    <option value="active">Actif (autorisé à facturer)</option>
-                    <option value="inactive">Inactif (archivé / suspendu)</option>
+                    <option value="">-- Sélectionnez un pays --</option>
+                    {WORLD_COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.name}>
+                        {c.flag} {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
+              {/* Adresse physique */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Adresse physique
@@ -1321,6 +1336,7 @@ export default function ClientsPage() {
                 />
               </div>
 
+              {/* Statut du client en finale */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Statut du client

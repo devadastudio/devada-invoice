@@ -22,6 +22,7 @@ import {
   getNextInvoiceNumber,
 } from "@/lib/mock-data";
 import { useAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { saveInvoice, fetchInvoices } from "@/lib/supabase/db";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { AppLanguage, translateItemDescription } from "@/lib/i18n";
@@ -143,12 +144,19 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
       currency: "FCFA",
     };
 
-    if (user?.id) {
-      const res = await saveInvoice(newInv, user.id);
+    const supabase = createClient();
+    let currentUserId = user?.id;
+    if (!currentUserId) {
+      const { data: authData } = await supabase.auth.getUser();
+      currentUserId = authData.user?.id;
+    }
+
+    if (currentUserId) {
+      const res = await saveInvoice(newInv, currentUserId);
       if (res.success && res.id) {
         newInv.id = res.id;
       }
-      const fresh = await fetchInvoices(user.id);
+      const fresh = await fetchInvoices(currentUserId);
       saveStoredInvoices(fresh || []);
     } else {
       saveStoredInvoices([newInv, ...getStoredInvoices()]);

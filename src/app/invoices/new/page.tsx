@@ -23,6 +23,7 @@ import {
   getNextInvoiceNumber,
 } from "@/lib/mock-data";
 import { useAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import {
   fetchClients,
   fetchCompanySettings,
@@ -117,12 +118,19 @@ function CreateInvoiceFormContent() {
       let loadedInvoices: Invoice[] = [];
       let loadedClients: Client[] = [];
 
-      if (user?.id) {
+      const supabase = createClient();
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
+
+      if (currentUserId) {
         try {
           const [dbSettings, dbClients, dbInvoices] = await Promise.all([
-            fetchCompanySettings(user.id),
-            fetchClients(user.id),
-            fetchInvoices(user.id),
+            fetchCompanySettings(currentUserId),
+            fetchClients(currentUserId),
+            fetchInvoices(currentUserId),
           ]);
           if (dbSettings) loadedSettings = dbSettings;
           loadedClients = dbClients || [];
@@ -462,9 +470,16 @@ function CreateInvoiceFormContent() {
         language: invoiceLanguage,
       };
 
-      if (user?.id) {
-        await saveInvoice(updatedInvoice, user.id);
-        const fresh = await fetchInvoices(user.id);
+      const supabase = createClient();
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
+
+      if (currentUserId) {
+        await saveInvoice(updatedInvoice, currentUserId);
+        const fresh = await fetchInvoices(currentUserId);
         saveStoredInvoices(fresh || []);
       } else {
         const updatedList = existing.map((inv) =>
@@ -515,12 +530,19 @@ function CreateInvoiceFormContent() {
       language: invoiceLanguage,
     };
 
-    if (user?.id) {
-      const res = await saveInvoice(newInvoice, user.id);
+    const supabase = createClient();
+    let currentUserId = user?.id;
+    if (!currentUserId) {
+      const { data: authData } = await supabase.auth.getUser();
+      currentUserId = authData.user?.id;
+    }
+
+    if (currentUserId) {
+      const res = await saveInvoice(newInvoice, currentUserId);
       if (res.success && res.id) {
         newInvoice.id = res.id;
       }
-      const fresh = await fetchInvoices(user.id);
+      const fresh = await fetchInvoices(currentUserId);
       saveStoredInvoices(fresh || []);
     } else {
       const existing = getStoredInvoices();

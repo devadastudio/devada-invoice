@@ -59,7 +59,7 @@ interface UserProfileState {
 const STORAGE_KEY = "devada_user_profile";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshAuthData } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "privacy" | "preferences">("profile");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -247,12 +247,18 @@ export default function ProfilePage() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (user?.id) {
-        const supabase = createClient();
+      const supabase = createClient();
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
+
+      if (currentUserId) {
         await Promise.all([
           supabase.from("profiles").upsert({
-            id: user.id,
-            email: user.email || profile.email,
+            id: currentUserId,
+            email: user?.email || profile.email,
             full_name: profile.name,
             phone: profile.phone,
             role: profile.role,
@@ -266,8 +272,9 @@ export default function ProfilePage() {
               rccm: profile.rccm,
               city: profile.city,
             })
-            .eq("user_id", user.id),
+            .eq("user_id", currentUserId),
         ]);
+        await refreshAuthData();
         window.dispatchEvent(new Event("settings_updated"));
       }
 

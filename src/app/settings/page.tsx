@@ -43,6 +43,7 @@ import {
   DEFAULT_WHATSAPP_TEMPLATE_IT,
 } from "@/lib/mock-data";
 import { useAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import {
   fetchCompanySettings,
   saveCompanySettings,
@@ -66,7 +67,7 @@ type SettingsTab =
   | "notifications";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshAuthData } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
@@ -224,8 +225,16 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    if (user?.id) {
-      await saveCompanySettings(settings, user.id);
+    const supabase = createClient();
+    let currentUserId = user?.id;
+    if (!currentUserId) {
+      const { data: authData } = await supabase.auth.getUser();
+      currentUserId = authData.user?.id;
+    }
+
+    if (currentUserId) {
+      await saveCompanySettings(settings, currentUserId);
+      await refreshAuthData();
     }
     saveStoredSettings(settings);
     saveStoredLanguage(settings.defaultLanguage || "fr");

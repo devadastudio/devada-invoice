@@ -47,6 +47,7 @@ export interface Client {
   phone: string;
   whatsapp?: string; // Numéro WhatsApp pro (optionnel)
   city: string;
+  country?: string; // Pays de domiciliation
   address: string;
   ninea?: string;
   rccm?: string;

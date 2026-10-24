@@ -71,6 +71,7 @@ export function rowToClient(row: ClientRow): Client {
     phone: row.phone || "",
     whatsapp: row.whatsapp || undefined,
     city: row.city || "Dakar",
+    country: (row as any).country || undefined,
     address: row.address || "",
     ninea: row.ninea || undefined,
     rccm: row.rccm || undefined,
@@ -375,6 +376,7 @@ export async function saveClient(
     phone: client.phone || null,
     whatsapp: client.whatsapp || null,
     city: client.city || "Dakar",
+    country: client.country || null,
     address: client.address || null,
     ninea: client.ninea || null,
     rccm: client.rccm || null,
@@ -391,7 +393,13 @@ export async function saveClient(
       .select("id")
       .single();
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("Erreur saveClient insert:", error);
+      return { success: false, error: error.message };
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("clients_updated"));
+    }
     return { success: true, id: data.id };
   } else {
     const { error } = await supabase
@@ -400,7 +408,13 @@ export async function saveClient(
       .eq("id", client.id!)
       .eq("user_id", userId);
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("Erreur saveClient update:", error);
+      return { success: false, error: error.message };
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("clients_updated"));
+    }
     return { success: true, id: client.id };
   }
 }
@@ -417,7 +431,16 @@ export async function deleteClient(
     .eq("id", clientId)
     .eq("user_id", userId);
 
-  return !error;
+  if (error) {
+    console.error("Erreur deleteClient:", error);
+    return false;
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("clients_updated"));
+  }
+
+  return true;
 }
 
 // ============================================================================

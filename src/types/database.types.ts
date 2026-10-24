@@ -19,6 +19,7 @@ export type Database = {
           address: string | null
           avatar_bg: string | null
           city: string | null
+          country: string | null
           created_at: string | null
           email: string | null
           email_pec: string | null
@@ -36,6 +37,7 @@ export type Database = {
           address?: string | null
           avatar_bg?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string | null
           email?: string | null
           email_pec?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           address?: string | null
           avatar_bg?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string | null
           email?: string | null
           email_pec?: string | null
