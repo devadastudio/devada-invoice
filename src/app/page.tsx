@@ -17,9 +17,13 @@ import {
 import { MetricCard, getStoredSettings } from "@/lib/mock-data";
 import { formatFCFA, formatAmountWithCurrency } from "@/lib/utils";
 import { usePlatformLanguage } from "@/lib/i18n";
-import { PERIOD_METRICS_MAP } from "@/lib/period-metrics";
+import {
+  PERIOD_METRICS_MAP,
+  calculatePeriodMetricsFromInvoices,
+} from "@/lib/period-metrics";
 import { useAuth } from "@/lib/supabase/auth-context";
-import { seedDemoDataIfEmpty } from "@/lib/supabase/db";
+import { fetchInvoices, seedDemoDataIfEmpty } from "@/lib/supabase/db";
+import { Invoice, getStoredInvoices } from "@/lib/mock-data";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -29,11 +33,37 @@ export default function DashboardPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState("oct-2026");
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [globalCurrency, setGlobalCurrency] = useState<string>("FCFA");
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   useEffect(() => {
     if (user?.id) {
       seedDemoDataIfEmpty(user.id);
     }
+  }, [user?.id]);
+
+  useEffect(() => {
+    const loadInvoices = async () => {
+      if (user?.id) {
+        try {
+          const dbInvoices = await fetchInvoices(user.id);
+          if (dbInvoices && dbInvoices.length > 0) {
+            setInvoices(dbInvoices);
+            return;
+          }
+        } catch (e) {
+          console.error("Erreur chargement factures dashboard:", e);
+        }
+      }
+      setInvoices(getStoredInvoices());
+    };
+
+    loadInvoices();
+    window.addEventListener("invoices_updated", loadInvoices);
+    window.addEventListener("storage", loadInvoices);
+    return () => {
+      window.removeEventListener("invoices_updated", loadInvoices);
+      window.removeEventListener("storage", loadInvoices);
+    };
   }, [user?.id]);
 
   useEffect(() => {
@@ -61,8 +91,14 @@ export default function DashboardPage() {
     }, 380);
   };
 
-  const periodStats =
-    PERIOD_METRICS_MAP[selectedPeriodId] || PERIOD_METRICS_MAP["oct-2026"];
+  const periodStats = useMemo(() => {
+    if (invoices && invoices.length > 0) {
+      return calculatePeriodMetricsFromInvoices(invoices, selectedPeriodId);
+    }
+    return (
+      PERIOD_METRICS_MAP[selectedPeriodId] || PERIOD_METRICS_MAP["oct-2026"]
+    );
+  }, [invoices, selectedPeriodId]);
 
   const dynamicMetrics: MetricCard[] = useMemo(() => {
     return [
@@ -169,6 +205,8 @@ export default function DashboardPage() {
               selectedPeriodId={selectedPeriodId}
               isLoading={isDataLoading}
               globalCurrency={globalCurrency}
+              invoices={invoices}
+              periodStats={periodStats}
             />
           </section>
 

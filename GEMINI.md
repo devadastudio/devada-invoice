@@ -251,11 +251,15 @@ L'application est 100% Full-Stack et connectée à **Supabase** (PostgreSQL 17, 
 - Politiques strictes basées sur `auth.uid() = user_id` : chaque utilisateur ne peut lire, insérer, modifier ou supprimer que ses propres données.
 - Fonctions triggers durcies avec `SET search_path = public`.
 
-### 6.3. Authentification & Onboarding Obligatoire en 2 Étapes
-- **Écran de Connexion (`/auth/login`)** : Authentification par email/mot de passe avec gestion de session SSR.
-- **Onboarding Obligatoire (`/auth/register`)** :
-  - *Étape 1 : Identifiants personnels* (Nom complet, Email, Mot de passe).
-  - *Étape 2 : Profil Légal Entreprise* (Raison sociale, Forme juridique, NINEA sénégalais, RCCM, Ville, Numéro Wave/Orange Money).
+### 6.3. Authentification & Onboarding Obligatoire en 3 Étapes
+- **Écran de Connexion (`/auth/login`)** : Authentification par email/mot de passe avec gestion de session SSR. Lien direct et opérationnel vers la récupération de mot de passe.
+- **Récupération de Mot de Passe (`/auth/forgot-password` & `/auth/reset-password`)** :
+  - Saisie de l'adresse email et expédition sécurisée du lien de réinitialisation via Supabase Auth.
+  - Page de définition du nouveau mot de passe avec validation et confirmation.
+- **Onboarding Obligatoire en 3 Étapes (`/auth/register`)** :
+  - *Étape 1 : Identifiants du dirigeant* (Nom & Prénom, Fonction / Rôle, Email de connexion, Téléphone, Mot de passe).
+  - *Étape 2 : Configuration légale de l'entreprise* (Raison sociale, Forme juridique, NINEA / NIF, RCCM / RCS, Adresse du siège, Ville, Sélecteur de Pays de domiciliation : Sénégal, Côte d'Ivoire, Cameroun, Mali, etc. Conforme à la réglementation du pays de résidence de l'entreprise).
+  - *Étape 3 : Coordonnées officielles de l'entreprise* (Email de facturation professionnel, Email PEC / Certifié optionnel, Téléphone de l'entreprise, Numéro WhatsApp professionnel).
   - Un trigger PostgreSQL `on_auth_user_created` alimente automatiquement `profiles` et `company_settings` dès la validation.
 - **Protection des Routes (`middleware.ts`)** :
   - Redirection automatique vers `/auth/login` pour tout utilisateur non connecté tentant d'accéder à l'application.

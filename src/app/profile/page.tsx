@@ -128,21 +128,32 @@ export default function ProfilePage() {
       if (user?.id) {
         try {
           const supabase = createClient();
-          const { data: dbProfile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .maybeSingle();
+          const [{ data: dbProfile }, { data: dbSettings }] = await Promise.all([
+            supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", user.id)
+              .maybeSingle(),
+            supabase
+              .from("company_settings")
+              .select("*")
+              .eq("user_id", user.id)
+              .maybeSingle(),
+          ]);
 
-          if (dbProfile) {
+          if (dbProfile || dbSettings) {
             setProfile((prev) => ({
               ...prev,
-              name: dbProfile.full_name || user.user_metadata?.full_name || prev.name,
-              email: dbProfile.email || user.email || prev.email,
-              phone: dbProfile.phone || user.user_metadata?.phone || prev.phone,
-              company: user.user_metadata?.company_name || prev.company,
-              role: dbProfile.role || prev.role,
-              avatarImageData: dbProfile.avatar_url || prev.avatarImageData,
+              name: dbProfile?.full_name || user.user_metadata?.full_name || prev.name,
+              email: dbProfile?.email || user.email || prev.email,
+              phone: dbProfile?.phone || user.user_metadata?.phone || prev.phone,
+              company: dbSettings?.company_name || user.user_metadata?.company_name || prev.company,
+              role: dbProfile?.role || prev.role,
+              avatarImageData: dbProfile?.avatar_url || prev.avatarImageData,
+              ninea: dbSettings?.ninea || prev.ninea,
+              rccm: dbSettings?.rccm || prev.rccm,
+              city: dbSettings?.city || prev.city,
+              country: dbSettings?.country || prev.country,
             }));
             return;
           } else if (user.user_metadata) {
@@ -238,14 +249,26 @@ export default function ProfilePage() {
     try {
       if (user?.id) {
         const supabase = createClient();
-        await supabase.from("profiles").upsert({
-          id: user.id,
-          email: user.email || profile.email,
-          full_name: profile.name,
-          phone: profile.phone,
-          role: profile.role,
-          avatar_url: profile.avatarImageData,
-        });
+        await Promise.all([
+          supabase.from("profiles").upsert({
+            id: user.id,
+            email: user.email || profile.email,
+            full_name: profile.name,
+            phone: profile.phone,
+            role: profile.role,
+            avatar_url: profile.avatarImageData,
+          }),
+          supabase
+            .from("company_settings")
+            .update({
+              company_name: profile.company,
+              ninea: profile.ninea,
+              rccm: profile.rccm,
+              city: profile.city,
+            })
+            .eq("user_id", user.id),
+        ]);
+        window.dispatchEvent(new Event("settings_updated"));
       }
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));

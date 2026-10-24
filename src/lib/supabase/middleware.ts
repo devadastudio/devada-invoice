@@ -64,8 +64,13 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Redirection des utilisateurs déjà connectés accédant à /auth/login ou /auth/register
-  if (user && (pathname === "/auth/login" || pathname === "/auth/register")) {
+  // Redirection des utilisateurs déjà connectés accédant aux pages d'authentification
+  if (
+    user &&
+    (pathname === "/auth/login" ||
+      pathname === "/auth/register" ||
+      pathname === "/auth/forgot-password")
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

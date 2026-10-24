@@ -224,9 +224,80 @@ export const PERIOD_METRICS_MAP: Record<string, PeriodMetricData> = {
 };
 
 /**
+ * Computes exact financial metrics for a period from a list of real invoices
+ */
+export function calculatePeriodMetricsFromInvoices(
+  invoices: Array<{
+    issueDate: string;
+    amountTTC: number;
+    amountPaid?: number;
+    amountDue?: number;
+    balanceDue?: number;
+    status: string;
+  }>,
+  periodId: string
+): PeriodMetricData {
+  const periodInvoices = invoices.filter((inv) =>
+    isInvoiceInPeriod(inv.issueDate, periodId)
+  );
+
+  const billed = periodInvoices.reduce(
+    (sum, inv) => sum + (Number(inv.amountTTC) || 0),
+    0
+  );
+
+  const collected = periodInvoices.reduce((sum, inv) => {
+    if (inv.status === "paid") {
+      return sum + (Number(inv.amountTTC) || 0);
+    }
+    return sum + (Number(inv.amountPaid) || 0);
+  }, 0);
+
+  const pending = periodInvoices.reduce((sum, inv) => {
+    if (inv.status === "paid") return sum;
+    if (inv.amountDue !== undefined) return sum + (Number(inv.amountDue) || 0);
+    if (inv.balanceDue !== undefined) return sum + (Number(inv.balanceDue) || 0);
+    const paid = Number(inv.amountPaid) || 0;
+    return sum + Math.max(0, (Number(inv.amountTTC) || 0) - paid);
+  }, 0);
+
+  const overdueInvoices = periodInvoices.filter((inv) => inv.status === "overdue");
+  const overdue = overdueInvoices.reduce((sum, inv) => {
+    if (inv.amountDue !== undefined) return sum + (Number(inv.amountDue) || 0);
+    if (inv.balanceDue !== undefined) return sum + (Number(inv.balanceDue) || 0);
+    const paid = Number(inv.amountPaid) || 0;
+    return sum + Math.max(0, (Number(inv.amountTTC) || 0) - paid);
+  }, 0);
+
+  const invoicesCount = periodInvoices.length;
+  const overdueCount = overdueInvoices.length;
+  const rate =
+    billed > 0
+      ? (Math.round((collected / billed) * 1000) / 10).toFixed(1) + "%"
+      : "0.0%";
+
+  const periodLabel =
+    PERIOD_METRICS_MAP[periodId]?.periodLabel || periodId;
+
+  return {
+    billed,
+    collected,
+    pending,
+    overdue,
+    invoicesCount,
+    overdueCount,
+    periodLabel,
+    rate,
+  };
+}
+
+/**
  * Returns customized chart bar series according to the selected period filter
  */
-export function getChartBreakdownForPeriod(periodId: string): {
+export function getChartBreakdownForPeriod(
+  periodId: string,
+  customStats?: PeriodMetricData
+): {
   bars: ChartBarItem[];
   yCeiling: number;
   periodLabel: string;
@@ -234,7 +305,7 @@ export function getChartBreakdownForPeriod(periodId: string): {
   totals: { billed: number; collected: number; pending: number };
 } {
   const fallback = PERIOD_METRICS_MAP["oct-2026"];
-  const current = PERIOD_METRICS_MAP[periodId] || fallback;
+  const current = customStats || PERIOD_METRICS_MAP[periodId] || fallback;
 
   // 1. All-time (cumulative) -> 3 years bars
   if (periodId === "all-time") {

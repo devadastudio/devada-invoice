@@ -13,7 +13,7 @@ import {
   Building,
   CheckCircle2,
 } from "lucide-react";
-import { TOP_CLIENTS, getStoredSettings } from "@/lib/mock-data";
+import { TOP_CLIENTS, getStoredSettings, Invoice } from "@/lib/mock-data";
 import {
   formatFCFA,
   formatAmountWithCurrency,
@@ -21,7 +21,7 @@ import {
   SupportedCurrency,
 } from "@/lib/utils";
 import { SkeletonChart } from "@/components/ui/Skeleton";
-import { getChartBreakdownForPeriod } from "@/lib/period-metrics";
+import { getChartBreakdownForPeriod, PeriodMetricData } from "@/lib/period-metrics";
 
 // Distinct high-contrast colors for client avatars
 const CLIENT_AVATARS = [
@@ -35,12 +35,16 @@ interface RevenueChartProps {
   selectedPeriodId?: string;
   isLoading?: boolean;
   globalCurrency?: string;
+  invoices?: Invoice[];
+  periodStats?: PeriodMetricData;
 }
 
 export function RevenueChart({
   selectedPeriodId = "oct-2026",
   isLoading = false,
   globalCurrency = "FCFA",
+  invoices,
+  periodStats,
 }: RevenueChartProps) {
   const [activeCurrency, setActiveCurrency] = useState<string>(() => {
     return globalCurrency || getStoredSettings().currency || "FCFA";
@@ -66,10 +70,38 @@ export function RevenueChart({
       window.removeEventListener("storage", load);
     };
   }, []);
+
   // Chart breakdown data according to selected period
   const chartData = useMemo(() => {
-    return getChartBreakdownForPeriod(selectedPeriodId);
-  }, [selectedPeriodId]);
+    return getChartBreakdownForPeriod(selectedPeriodId, periodStats);
+  }, [selectedPeriodId, periodStats]);
+
+  // Dynamic Top Clients from real invoices
+  const dynamicTopClients = useMemo(() => {
+    if (invoices && invoices.length > 0) {
+      const clientMap = new Map<
+        string,
+        { id: string; name: string; city: string; totalBilled: number; invoicesCount: number }
+      >();
+      for (const inv of invoices) {
+        const name = inv.clientName?.trim() || "Client";
+        const existing = clientMap.get(name) || {
+          id: name,
+          name,
+          city: inv.clientCity || "Dakar",
+          totalBilled: 0,
+          invoicesCount: 0,
+        };
+        existing.totalBilled += Number(inv.amountTTC) || 0;
+        existing.invoicesCount += 1;
+        clientMap.set(name, existing);
+      }
+      return Array.from(clientMap.values())
+        .sort((a, b) => b.totalBilled - a.totalBilled)
+        .slice(0, 4);
+    }
+    return TOP_CLIENTS;
+  }, [invoices]);
 
   // Selected bar item ID within the period (or null for whole period total)
   const [selectedBarId, setSelectedBarId] = useState<string | null>(null);
@@ -337,7 +369,7 @@ export function RevenueChart({
           </p>
 
           <div className="space-y-3.5">
-            {TOP_CLIENTS.map((client, index) => {
+            {dynamicTopClients.map((client, index) => {
               const avatarStyle = CLIENT_AVATARS[index % CLIENT_AVATARS.length];
               return (
                 <div

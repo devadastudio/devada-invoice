@@ -71,6 +71,7 @@ export type Database = {
       company_settings: {
         Row: {
           address: string | null
+          auto_payment_reminder: boolean | null
           bank_account_holder: string | null
           bank_enabled: boolean | null
           bank_iban: string | null
@@ -86,6 +87,8 @@ export type Database = {
           default_language: string | null
           default_tax_rate: number | null
           email: string | null
+          email_notifications: boolean | null
+          email_pec: string | null
           footer_legal_text: string | null
           id: string
           invoice_prefix: string | null
@@ -101,10 +104,12 @@ export type Database = {
           rate_eur: number | null
           rate_usd: number | null
           rccm: string | null
+          reminder_days_before_due: number | null
           show_exchange_rate_on_invoices: boolean | null
           signature_image_data: string | null
           signature_name: string | null
           signature_type: string | null
+          stripe_enabled: boolean | null
           tax_applicable: boolean | null
           trade_name: string | null
           updated_at: string | null
@@ -113,9 +118,15 @@ export type Database = {
           wave_enabled: boolean | null
           wave_number: string | null
           website: string | null
+          whatsapp_default_language: string | null
+          whatsapp_number: string | null
+          whatsapp_template_en: string | null
+          whatsapp_template_fr: string | null
+          whatsapp_template_it: string | null
         }
         Insert: {
           address?: string | null
+          auto_payment_reminder?: boolean | null
           bank_account_holder?: string | null
           bank_enabled?: boolean | null
           bank_iban?: string | null
@@ -131,6 +142,8 @@ export type Database = {
           default_language?: string | null
           default_tax_rate?: number | null
           email?: string | null
+          email_notifications?: boolean | null
+          email_pec?: string | null
           footer_legal_text?: string | null
           id?: string
           invoice_prefix?: string | null
@@ -146,10 +159,12 @@ export type Database = {
           rate_eur?: number | null
           rate_usd?: number | null
           rccm?: string | null
+          reminder_days_before_due?: number | null
           show_exchange_rate_on_invoices?: boolean | null
           signature_image_data?: string | null
           signature_name?: string | null
           signature_type?: string | null
+          stripe_enabled?: boolean | null
           tax_applicable?: boolean | null
           trade_name?: string | null
           updated_at?: string | null
@@ -158,9 +173,15 @@ export type Database = {
           wave_enabled?: boolean | null
           wave_number?: string | null
           website?: string | null
+          whatsapp_default_language?: string | null
+          whatsapp_number?: string | null
+          whatsapp_template_en?: string | null
+          whatsapp_template_fr?: string | null
+          whatsapp_template_it?: string | null
         }
         Update: {
           address?: string | null
+          auto_payment_reminder?: boolean | null
           bank_account_holder?: string | null
           bank_enabled?: boolean | null
           bank_iban?: string | null
@@ -176,6 +197,8 @@ export type Database = {
           default_language?: string | null
           default_tax_rate?: number | null
           email?: string | null
+          email_notifications?: boolean | null
+          email_pec?: string | null
           footer_legal_text?: string | null
           id?: string
           invoice_prefix?: string | null
@@ -191,10 +214,12 @@ export type Database = {
           rate_eur?: number | null
           rate_usd?: number | null
           rccm?: string | null
+          reminder_days_before_due?: number | null
           show_exchange_rate_on_invoices?: boolean | null
           signature_image_data?: string | null
           signature_name?: string | null
           signature_type?: string | null
+          stripe_enabled?: boolean | null
           tax_applicable?: boolean | null
           trade_name?: string | null
           updated_at?: string | null
@@ -203,6 +228,11 @@ export type Database = {
           wave_enabled?: boolean | null
           wave_number?: string | null
           website?: string | null
+          whatsapp_default_language?: string | null
+          whatsapp_number?: string | null
+          whatsapp_template_en?: string | null
+          whatsapp_template_fr?: string | null
+          whatsapp_template_it?: string | null
         }
         Relationships: []
       }

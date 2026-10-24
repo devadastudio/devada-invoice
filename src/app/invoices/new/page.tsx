@@ -213,6 +213,12 @@ function CreateInvoiceFormContent() {
     };
 
     initData();
+    window.addEventListener("clients_updated", initData);
+    window.addEventListener("settings_updated", initData);
+    return () => {
+      window.removeEventListener("clients_updated", initData);
+      window.removeEventListener("settings_updated", initData);
+    };
   }, [editId, user?.id]);
 
   // Form State

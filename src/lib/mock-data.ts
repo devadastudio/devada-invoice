@@ -2233,7 +2233,9 @@ export interface CompanySettings {
   postalCode: string;
   country: string;
   email: string;
+  emailPec?: string;
   phone: string;
+  whatsappNumber?: string;
   website: string;
   currency: string;
   taxApplicable: boolean;

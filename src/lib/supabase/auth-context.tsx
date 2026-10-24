@@ -58,7 +58,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      if (comp) setCompanySettings(comp);
+      if (comp) {
+        setCompanySettings(comp);
+      } else if (currentUser.user_metadata?.company_name) {
+        setCompanySettings({
+          user_id: currentUser.id,
+          company_name: currentUser.user_metadata.company_name,
+          legal_form: currentUser.user_metadata.legal_form || "SARL",
+          ninea: currentUser.user_metadata.ninea || "",
+          rccm: currentUser.user_metadata.rccm || "",
+          address: currentUser.user_metadata.address || "",
+          city: currentUser.user_metadata.city || "Dakar",
+          country: currentUser.user_metadata.country || "Sénégal",
+          phone: currentUser.user_metadata.phone || "",
+          email: currentUser.user_metadata.company_email || currentUser.email || "",
+          website: "",
+          currency: "FCFA",
+          default_tax_rate: 18,
+          tax_applicable: true,
+          bank_name: "",
+          bank_rib: "",
+          bank_iban: "",
+          bank_bic: "",
+          wave_number: currentUser.user_metadata.wave_number || "",
+          om_number: "",
+          payment_terms: "",
+          legal_notice: "",
+          default_language: "fr",
+          show_exchange_rate_on_invoices: false,
+          logo_url: "",
+          signature_url: "",
+          signature_type: "name",
+          email_pec: currentUser.user_metadata.email_pec || "",
+          whatsapp_number: currentUser.user_metadata.whatsapp || "",
+          whatsapp_template_fr: "",
+          whatsapp_template_en: "",
+          whatsapp_template_it: "",
+          whatsapp_default_language: "fr",
+          email_notifications: true,
+          auto_payment_reminder: true,
+          reminder_days_before_due: 3,
+          stripe_enabled: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as unknown as CompanySettingsRow);
+      }
     } catch (error) {
       console.error("Erreur lors du chargement des données utilisateur:", error);
     }
@@ -122,9 +166,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    const handleExternalSettingsUpdate = () => {
+      supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
+        if (currentUser) {
+          fetchUserData(currentUser);
+        }
+      });
+    };
+
+    window.addEventListener("settings_updated", handleExternalSettingsUpdate);
+    window.addEventListener("company_settings_updated", handleExternalSettingsUpdate);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      window.removeEventListener("settings_updated", handleExternalSettingsUpdate);
+      window.removeEventListener("company_settings_updated", handleExternalSettingsUpdate);
     };
   }, [router, supabase]);
 

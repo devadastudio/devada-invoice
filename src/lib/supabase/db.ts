@@ -125,6 +125,16 @@ export function rowToSettings(row: CompanySettingsRow): CompanySettings {
     signatureImageData: row.signature_image_data || "",
     companyLogo: row.company_logo || "",
     showExchangeRateOnInvoices: row.show_exchange_rate_on_invoices ?? false,
+    emailPec: row.email_pec || undefined,
+    whatsappNumber: row.whatsapp_number || undefined,
+    whatsappTemplateFr: row.whatsapp_template_fr || DEFAULT_SETTINGS.whatsappTemplateFr,
+    whatsappTemplateEn: row.whatsapp_template_en || DEFAULT_SETTINGS.whatsappTemplateEn,
+    whatsappTemplateIt: row.whatsapp_template_it || DEFAULT_SETTINGS.whatsappTemplateIt,
+    whatsappDefaultLanguage: (row.whatsapp_default_language as "fr" | "en" | "it") || "fr",
+    emailNotifications: row.email_notifications ?? true,
+    autoPaymentReminder: row.auto_payment_reminder ?? true,
+    reminderDaysBeforeDue: Number(row.reminder_days_before_due) || 3,
+    stripeEnabled: row.stripe_enabled ?? false,
   };
 }
 
@@ -476,6 +486,16 @@ export async function saveCompanySettings(
     signature_image_data: settings.signatureImageData || null,
     company_logo: settings.companyLogo || null,
     show_exchange_rate_on_invoices: settings.showExchangeRateOnInvoices,
+    email_pec: settings.emailPec || null,
+    whatsapp_number: settings.whatsappNumber || null,
+    whatsapp_template_fr: settings.whatsappTemplateFr || null,
+    whatsapp_template_en: settings.whatsappTemplateEn || null,
+    whatsapp_template_it: settings.whatsappTemplateIt || null,
+    whatsapp_default_language: settings.whatsappDefaultLanguage || "fr",
+    email_notifications: settings.emailNotifications ?? true,
+    auto_payment_reminder: settings.autoPaymentReminder ?? true,
+    reminder_days_before_due: settings.reminderDaysBeforeDue ?? 3,
+    stripe_enabled: settings.stripeEnabled ?? false,
   };
 
   const { error } = await supabase

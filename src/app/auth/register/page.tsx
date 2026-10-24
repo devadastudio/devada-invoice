@@ -12,7 +12,7 @@ import {
   Phone,
   MapPin,
   FileText,
-  CreditCard,
+  Globe,
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
@@ -22,6 +22,8 @@ import {
   Eye,
   EyeOff,
   Briefcase,
+  Smartphone,
+  Shield,
 } from "lucide-react";
 
 const LEGAL_FORMS = [
@@ -34,11 +36,29 @@ const LEGAL_FORMS = [
   { value: "Freelance", label: "Consultant Indépendant / Freelance" },
 ];
 
+const COUNTRIES = [
+  { code: "SN", name: "Sénégal 🇸🇳" },
+  { code: "CI", name: "Côte d'Ivoire 🇨🇮" },
+  { code: "CM", name: "Cameroun 🇨🇲" },
+  { code: "ML", name: "Mali 🇲🇱" },
+  { code: "GN", name: "Guinée 🇬🇳" },
+  { code: "BJ", name: "Bénin 🇧🇯" },
+  { code: "TG", name: "Togo 🇹🇬" },
+  { code: "BF", name: "Burkina Faso 🇧🇫" },
+  { code: "GA", name: "Gabon 🇬🇦" },
+  { code: "CG", name: "Congo 🇨🇬" },
+  { code: "CD", name: "RD Congo 🇨🇩" },
+  { code: "FR", name: "France 🇫🇷" },
+  { code: "BE", name: "Belgique 🇧🇪" },
+  { code: "MA", name: "Maroc 🇲🇦" },
+  { code: "OTHER", name: "Autre pays 🌍" },
+];
+
 export default function RegisterPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [registrationSuccess, setRegistrationSuccess] = useState<boolean>(false);
@@ -51,16 +71,22 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("Directeur Général");
 
-  // Étape 2 : Profil Entreprise & Mentions Légales Sénégal
+  // Étape 2 : Profil Entreprise & Mentions Légales
   const [companyName, setCompanyName] = useState("");
   const [legalForm, setLegalForm] = useState("SARL");
   const [ninea, setNinea] = useState("");
   const [rccm, setRccm] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Dakar");
-  const [waveNumber, setWaveNumber] = useState("");
+  const [country, setCountry] = useState("Sénégal 🇸🇳");
 
-  const handleNextStep = (e: React.FormEvent) => {
+  // Étape 3 : Coordonnées de Contact de l'Entreprise
+  const [companyEmail, setCompanyEmail] = useState("");
+  const [emailPec, setEmailPec] = useState("");
+  const [companyPhone, setCompanyPhone] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+
+  const handleStep1Submit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -73,15 +99,32 @@ export default function RegisterPage() {
       return;
     }
 
+    // Pré-remplir les contacts avec les infos du dirigeant si vides
+    if (!companyEmail) setCompanyEmail(email.trim());
+    if (!companyPhone && phone) setCompanyPhone(phone.trim());
+    if (!whatsappNumber && phone) setWhatsappNumber(phone.trim());
+
     setStep(2);
+  };
+
+  const handleStep2Submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!companyName.trim()) {
+      setErrorMessage("La raison sociale de votre entreprise est obligatoire pour la facturation.");
+      return;
+    }
+
+    setStep(3);
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!companyName.trim()) {
-      setErrorMessage("La raison sociale de votre entreprise est obligatoire pour la facturation.");
+    if (!companyEmail.trim()) {
+      setErrorMessage("L'adresse email de l'entreprise est obligatoire pour la facturation.");
       return;
     }
 
@@ -99,11 +142,15 @@ export default function RegisterPage() {
             phone: phone.trim(),
             company_name: companyName.trim(),
             legal_form: legalForm,
-            ninea: ninea.trim() || "006458921 2R8",
-            rccm: rccm.trim() || "SN-DKR-2022-B-1425",
-            address: address.trim() || "Dakar, Sénégal",
-            city: city.trim() || "Dakar",
-            wave_number: waveNumber.trim() || phone.trim(),
+            ninea: ninea.trim(),
+            rccm: rccm.trim(),
+            address: address.trim(),
+            city: city.trim(),
+            country: country.replace(/[^\w\sÀ-ÿ]/gi, "").trim(),
+            company_email: companyEmail.trim(),
+            email_pec: emailPec.trim(),
+            company_phone: companyPhone.trim() || phone.trim(),
+            whatsapp: whatsappNumber.trim() || phone.trim(),
           },
         },
       });
@@ -127,9 +174,11 @@ export default function RegisterPage() {
             rccm: rccm.trim(),
             address: address.trim(),
             city: city.trim(),
-            phone: phone.trim(),
-            email: email.trim(),
-            wave_number: waveNumber.trim(),
+            country: country.replace(/[^\w\sÀ-ÿ]/gi, "").trim(),
+            email: companyEmail.trim(),
+            email_pec: emailPec.trim(),
+            phone: companyPhone.trim() || phone.trim(),
+            whatsapp_number: whatsappNumber.trim() || phone.trim(),
             currency: "FCFA",
             default_tax_rate: 18,
             tax_applicable: true,
@@ -211,15 +260,17 @@ export default function RegisterPage() {
         </Link>
 
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white pt-2">
-          {step === 1 ? "Vos identifiants de dirigeant" : "Configuration de votre entreprise"}
+          {step === 1 && "Vos identifiants de dirigeant"}
+          {step === 2 && "Informations légales de l'entreprise"}
+          {step === 3 && "Coordonnées officielles de l'entreprise"}
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-          {step === 1
-            ? "Créez votre accès personnel avant de renseigner les informations légales de votre société."
-            : "Ces informations fiscales (NINEA, RCCM, Wave) figureront sur vos factures et devis officiels."}
+          {step === 1 && "Créez votre accès personnel avant de renseigner les informations légales de votre société."}
+          {step === 2 && "Ces informations figureront sur l'en-tête et le pied de page de vos factures officielles conformes à la réglementation du pays où votre entreprise est domiciliée."}
+          {step === 3 && "Coordonnées de contact pour vos factures, devis officiels et échanges avec vos clients."}
         </p>
 
-        {/* Step Progress Bar */}
+        {/* Step Progress Bar (3 steps) */}
         <div className="pt-3 max-w-xs mx-auto">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5">
             <span className={step >= 1 ? "text-blue-600 dark:text-blue-400 font-extrabold" : ""}>
@@ -228,11 +279,14 @@ export default function RegisterPage() {
             <span className={step >= 2 ? "text-blue-600 dark:text-blue-400 font-extrabold" : ""}>
               2. Entreprise
             </span>
+            <span className={step >= 3 ? "text-blue-600 dark:text-blue-400 font-extrabold" : ""}>
+              3. Contacts
+            </span>
           </div>
           <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-600 rounded-full transition-all duration-300"
-              style={{ width: step === 1 ? "50%" : "100%" }}
+              style={{ width: step === 1 ? "33.33%" : step === 2 ? "66.66%" : "100%" }}
             />
           </div>
         </div>
@@ -250,7 +304,7 @@ export default function RegisterPage() {
 
           {/* ÉTAPE 1 : IDENTIFIANTS */}
           {step === 1 && (
-            <form onSubmit={handleNextStep} className="space-y-4">
+            <form onSubmit={handleStep1Submit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* Nom complet */}
                 <div className="space-y-1">
@@ -292,10 +346,10 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Email professionnel */}
+              {/* Email personnel */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Email professionnel <span className="text-rose-500">*</span>
+                  Email de connexion <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative rounded-xl shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -304,7 +358,7 @@ export default function RegisterPage() {
                   <input
                     type="email"
                     required
-                    placeholder="directeur@dakar-tech.sn"
+                    placeholder="amadou.diallo@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -313,10 +367,10 @@ export default function RegisterPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* Téléphone personnel / WhatsApp */}
+                {/* Téléphone personnel */}
                 <div className="space-y-1">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Téléphone personnel / WhatsApp
+                    Téléphone personnel
                   </label>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -371,13 +425,13 @@ export default function RegisterPage() {
             </form>
           )}
 
-          {/* ÉTAPE 2 : INFORMATIONS ENTREPRISE */}
+          {/* ÉTAPE 2 : INFORMATIONS LÉGALES ENTREPRISE */}
           {step === 2 && (
-            <form onSubmit={handleFinalSubmit} className="space-y-3.5">
+            <form onSubmit={handleStep2Submit} className="space-y-3.5">
               <div className="p-3 bg-blue-50/60 dark:bg-blue-950/30 rounded-2xl border border-blue-200/60 dark:border-blue-900/40 text-[11px] text-blue-800 dark:text-blue-300 flex items-start gap-2">
                 <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                 <span>
-                  Ces informations figureront sur l&apos;en-tête et le pied de page de vos factures officielles conformes à la réglementation sénégalaise.
+                  Ces informations figureront sur l&apos;en-tête et le pied de page de vos factures officielles conformes à la réglementation du pays où votre entreprise est domiciliée.
                 </span>
               </div>
 
@@ -422,10 +476,10 @@ export default function RegisterPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* NINEA */}
+                {/* NINEA / NIF / SIREN */}
                 <div className="space-y-1">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Numéro NINEA (DGID)
+                    Identifiant fiscal (NINEA / NIF / SIREN)
                   </label>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -441,10 +495,10 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                {/* RCCM */}
+                {/* RCCM / Registre du commerce */}
                 <div className="space-y-1">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Numéro RCCM
+                    Registre du commerce (RCCM / RCS)
                   </label>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -461,65 +515,185 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Ville */}
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Ville
-                  </label>
-                  <div className="relative rounded-xl shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <MapPin className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Dakar"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
+              {/* Adresse du siège */}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Adresse du siège
+                </label>
+                <div className="relative rounded-xl shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <MapPin className="h-4 w-4" />
                   </div>
-                </div>
-
-                {/* Adresse */}
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Adresse du siège
-                  </label>
                   <input
                     type="text"
                     placeholder="Immeuble Kébé, Avenue Jean Jaurès, Plateau"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
+                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Ville */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Ville
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Dakar"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
                     className="block w-full px-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
-              </div>
 
-              {/* Numéro Wave Business */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Numéro Wave Business / Orange Money pour règlements
-                </label>
-                <div className="relative rounded-xl shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600 dark:text-emerald-400">
-                    <CreditCard className="h-4 w-4" />
+                {/* Pays de domiciliation */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Pays de domiciliation
+                  </label>
+                  <div className="relative rounded-xl shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Globe className="h-4 w-4" />
+                    </div>
+                    <select
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                    >
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <input
-                    type="tel"
-                    placeholder="+221 77 845 22 10"
-                    value={waveNumber}
-                    onChange={(e) => setWaveNumber(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
-                  />
                 </div>
               </div>
 
-              {/* Boutons Retour & Finaliser */}
+              {/* Boutons Navigation Étape 2 */}
               <div className="flex items-center gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setStep(1)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Retour</span>
+                </button>
+
+                <button
+                  type="submit"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all"
+                >
+                  <span>Continuer vers les contacts officiels</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ÉTAPE 3 : CONTACTS OFFICIELS DE L'ENTREPRISE */}
+          {step === 3 && (
+            <form onSubmit={handleFinalSubmit} className="space-y-3.5">
+              <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200/60 dark:border-emerald-900/40 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                <span>
+                  Ces coordonnées officielles figureront sur vos documents de facturation pour permettre à vos clients de vous joindre et de recevoir leurs quittances.
+                </span>
+              </div>
+
+              {/* Email professionnel de l'entreprise */}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Email de facturation de l&apos;entreprise <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative rounded-xl shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    placeholder="contact@votre-entreprise.sn"
+                    value={companyEmail}
+                    onChange={(e) => setCompanyEmail(e.target.value)}
+                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Email PEC (Courrier Électronique Certifié) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Email PEC (Courrier Électronique Certifié)
+                  </label>
+                  <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                    Optionnel
+                  </span>
+                </div>
+                <div className="relative rounded-xl shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-indigo-500">
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="entreprise@pec.sn"
+                    value={emailPec}
+                    onChange={(e) => setEmailPec(e.target.value)}
+                    className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Téléphone de l'entreprise */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Téléphone de l&apos;entreprise
+                  </label>
+                  <div className="relative rounded-xl shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Phone className="h-4 w-4" />
+                    </div>
+                    <input
+                      type="tel"
+                      placeholder="+221 33 821 00 00"
+                      value={companyPhone}
+                      onChange={(e) => setCompanyPhone(e.target.value)}
+                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Numéro WhatsApp professionnel */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Numéro WhatsApp Pro
+                  </label>
+                  <div className="relative rounded-xl shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600 dark:text-emerald-400">
+                      <Smartphone className="h-4 w-4" />
+                    </div>
+                    <input
+                      type="tel"
+                      placeholder="+221 77 123 45 67"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-50/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl placeholder-slate-400 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Boutons Navigation Étape 3 */}
+              <div className="flex items-center gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
                   disabled={isLoading}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
                 >

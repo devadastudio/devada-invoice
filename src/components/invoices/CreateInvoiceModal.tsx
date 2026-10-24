@@ -140,7 +140,7 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
       })),
       notes: "Paiement exigible sous 15 jours par Wave, Orange Money ou virement bancaire.",
       paymentMethod,
-      currency: "XOF",
+      currency: "FCFA",
     };
 
     if (user?.id) {

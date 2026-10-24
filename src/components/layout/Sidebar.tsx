@@ -366,10 +366,16 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {profile?.full_name || (user?.email ? user.email.split("@")[0] : userProfile.name)}
+                    {profile?.full_name || user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : userProfile.name)}
                   </p>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                    {companySettings?.company_name || userProfile.company}
+                    {companySettings?.company_name ||
+                      user?.user_metadata?.company_name ||
+                      (userProfile.company !== CURRENT_USER.company
+                        ? userProfile.company
+                        : user
+                        ? "Mon Entreprise"
+                        : CURRENT_USER.company)}
                   </p>
                 </div>
               </div>

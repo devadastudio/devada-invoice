@@ -20,6 +20,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered");
+  const passwordReset = searchParams.get("password_reset");
   const callbackError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
@@ -118,6 +119,18 @@ export default function LoginPage() {
             </div>
           )}
 
+          {passwordReset && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-bold">Mot de passe réinitialisé !</p>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Error Message */}
           {errorMessage && (
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
@@ -161,16 +174,12 @@ export default function LoginPage() {
                 >
                   Mot de passe
                 </label>
-                <a
-                  href="#forgot"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert("Pour réinitialiser votre mot de passe, contactez le support ou utilisez le lien envoyé à votre adresse.");
-                  }}
+                <Link
+                  href="/auth/forgot-password"
                   className="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline font-medium"
                 >
                   Mot de passe oublié ?
-                </a>
+                </Link>
               </div>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
