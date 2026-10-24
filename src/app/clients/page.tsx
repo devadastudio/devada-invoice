@@ -6,7 +6,6 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Pagination } from "@/components/ui/Pagination";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
-import { SuccessModal, SuccessModalDetail } from "@/components/ui/SuccessModal";
 import {
   Client,
   MOCK_CLIENTS,
@@ -89,6 +88,7 @@ export default function ClientsPage() {
   // Modal State (Add / Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form Fields (including acquisitionDate, emailPec, whatsapp and country)
   const [formData, setFormData] = useState({
@@ -122,17 +122,7 @@ export default function ClientsPage() {
     }, 1800);
   };
 
-  const [successModalData, setSuccessModalData] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    details: SuccessModalDetail[];
-  }>({
-    isOpen: false,
-    title: "",
-    message: "",
-    details: [],
-  });
+
 
   const [globalCurrency, setGlobalCurrency] = useState<string>("FCFA");
 
@@ -285,99 +275,98 @@ export default function ClientsPage() {
       return;
     }
 
-    const supabase = createClient();
-    let currentUserId = user?.id;
-    if (!currentUserId) {
-      const { data: authData } = await supabase.auth.getUser();
-      currentUserId = authData.user?.id;
-    }
+    setIsSubmitting(true);
 
-    if (!currentUserId) {
-      showToast("Session expirée. Veuillez vous reconnecter.");
-      return;
-    }
+    try {
+      const supabase = createClient();
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
 
-    if (editingClient) {
-      // Update
-      const updatedClientData: Partial<Client> = {
-        id: editingClient.id,
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        emailPec: formData.emailPec.trim() || undefined,
-        phone: formData.phone.trim(),
-        whatsapp: formData.whatsapp.trim() || undefined,
-        city: formData.city.trim() || "Dakar",
-        country: formData.country.trim() || undefined,
-        address: formData.address.trim(),
-        ninea: formData.ninea.trim() || undefined,
-        status: formData.status,
-      };
-
-      const res = await saveClient(updatedClientData, currentUserId);
-      if (!res.success) {
-        showToast(`Erreur : ${res.error || "Impossible de modifier le client"}`);
+      if (!currentUserId) {
+        showToast("Session expirée. Veuillez vous reconnecter.");
+        setIsSubmitting(false);
         return;
       }
 
-      await loadClientsData();
+      if (editingClient) {
+        // Mode modification
+        const updatedClientData: Partial<Client> = {
+          id: editingClient.id,
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          emailPec: formData.emailPec.trim() || undefined,
+          phone: formData.phone.trim(),
+          whatsapp: formData.whatsapp.trim() || undefined,
+          city: formData.city.trim() || "Dakar",
+          country: formData.country.trim() || undefined,
+          address: formData.address.trim(),
+          ninea: formData.ninea.trim() || undefined,
+          status: formData.status,
+        };
 
-      setSuccessModalData({
-        isOpen: true,
-        title: "Client modifié avec succès !",
-        message: `Les informations de "${formData.name}" ont été mises à jour avec succès.`,
-        details: [
-          { label: "Raison Sociale", value: formData.name },
-          { label: "Email professionnel", value: formData.email },
-          { label: "Téléphone", value: formData.phone || "Non renseigné" },
-          { label: "Date d'acquisition", value: formatDate(formData.acquisitionDate) },
-          { label: "Ville", value: formData.city || "Dakar" },
-          { label: "Pays", value: formData.country || "Non renseigné" },
-          { label: "Statut", value: formData.status === "active" ? "Actif" : "Inactif", isHighlight: true },
-        ],
-      });
-      showToast(`Fiche client de ${formData.name} mise à jour avec succès !`);
-    } else {
-      // Create new
-      const newClientPayload: Partial<Client> = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        emailPec: formData.emailPec.trim() || undefined,
-        phone: formData.phone.trim(),
-        whatsapp: formData.whatsapp.trim() || undefined,
-        city: formData.city.trim() || "Dakar",
-        country: formData.country.trim() || undefined,
-        address: formData.address.trim(),
-        ninea: formData.ninea.trim() || undefined,
-        avatarBg: AVATAR_COLORS[clients.length % AVATAR_COLORS.length],
-        status: formData.status,
-      };
+        const res = await saveClient(updatedClientData, currentUserId);
+        if (!res.success) {
+          showToast(`Erreur : ${res.error || "Impossible de modifier le client"}`);
+          setIsSubmitting(false);
+          return;
+        }
 
-      const res = await saveClient(newClientPayload, currentUserId);
-      if (!res.success) {
-        showToast(`Erreur : ${res.error || "Impossible d'enregistrer le client"}`);
-        return;
+        // Fermeture immédiate de la modale
+        setIsModalOpen(false);
+        setEditingClient(null);
+        showToast(`Fiche client de "${formData.name}" mise à jour avec succès !`);
+        await loadClientsData();
+      } else {
+        // Mode création nouveau client
+        const newClientPayload: Partial<Client> = {
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          emailPec: formData.emailPec.trim() || undefined,
+          phone: formData.phone.trim(),
+          whatsapp: formData.whatsapp.trim() || undefined,
+          city: formData.city.trim() || "Dakar",
+          country: formData.country.trim() || undefined,
+          address: formData.address.trim(),
+          ninea: formData.ninea.trim() || undefined,
+          avatarBg: AVATAR_COLORS[clients.length % AVATAR_COLORS.length],
+          status: formData.status,
+        };
+
+        const res = await saveClient(newClientPayload, currentUserId);
+        if (!res.success) {
+          showToast(`Erreur : ${res.error || "Impossible d'enregistrer le client"}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Fermeture immédiate de la modale
+        setIsModalOpen(false);
+        setEditingClient(null);
+        setFormData({
+          name: "",
+          email: "",
+          emailPec: "",
+          phone: "",
+          whatsapp: "",
+          city: "",
+          country: "",
+          address: "",
+          ninea: "",
+          status: "active",
+          acquisitionDate: new Date().toISOString().split("T")[0],
+        });
+        showToast(`Nouveau client "${formData.name}" ajouté avec succès au répertoire !`);
+        await loadClientsData();
       }
-
-      await loadClientsData();
-
-      setSuccessModalData({
-        isOpen: true,
-        title: "Client créé avec succès !",
-        message: `L'entreprise "${formData.name}" a été ajoutée à votre répertoire client.`,
-        details: [
-          { label: "Raison Sociale", value: formData.name },
-          { label: "Email professionnel", value: formData.email },
-          { label: "Date d'acquisition", value: formatDate(formData.acquisitionDate) },
-          { label: "Téléphone", value: formData.phone || "Non renseigné" },
-          { label: "Ville", value: formData.city || "Dakar" },
-          { label: "Pays", value: formData.country || "Non renseigné" },
-          { label: "NINEA", value: formData.ninea || "Non renseigné" },
-        ],
-      });
-      showToast(`Nouveau client ${formData.name} ajouté au répertoire !`);
+    } catch (err: any) {
+      console.error("Erreur sauvegarde client:", err);
+      showToast(`Erreur : ${err?.message || "Une erreur est survenue"}`);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsModalOpen(false);
   };
 
   // Memo counts for quick tabs
@@ -1357,15 +1346,26 @@ export default function ClientsPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 rounded-xl transition-colors"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl shadow-sm shadow-blue-500/25 transition-all"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl shadow-sm shadow-blue-500/25 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingClient ? "Enregistrer les modifications" : "Créer le client"}
+                  {isSubmitting ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : editingClient ? (
+                    "Enregistrer les modifications"
+                  ) : (
+                    "Créer le client"
+                  )}
                 </button>
               </div>
             </form>
@@ -1403,16 +1403,7 @@ export default function ClientsPage() {
         )}
       </ConfirmModal>
 
-      {/* Success Modal: Client Créé / Modifié */}
-      <SuccessModal
-        isOpen={successModalData.isOpen}
-        onClose={() => setSuccessModalData((prev) => ({ ...prev, isOpen: false }))}
-        title={successModalData.title}
-        message={successModalData.message}
-        badgeText="Répertoire Client Mis à Jour"
-        details={successModalData.details}
-        closeLabel="Fermer"
-      />
+
     </div>
   );
 }
