@@ -78,9 +78,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const load = async () => {
-      if (user?.id) {
+      let currentUserId = user?.id;
+      const supabase = createClient();
+      if (!currentUserId) {
+        const { data: authData } = await supabase.auth.getUser();
+        currentUserId = authData.user?.id;
+      }
+
+      if (currentUserId) {
         try {
-          const dbSettings = await fetchCompanySettings(user.id);
+          const dbSettings = await fetchCompanySettings(currentUserId);
           if (dbSettings) {
             setSettings(dbSettings);
             saveStoredSettings(dbSettings);
@@ -90,6 +97,29 @@ export default function SettingsPage() {
           console.error("Erreur chargement settings Supabase:", e);
         }
       }
+
+      // Si aucun réglage en base, initialiser avec les données fournies par l'utilisateur lors de l'inscription
+      if (user?.user_metadata) {
+        const meta = user.user_metadata;
+        const initialFromMeta: CompanySettings = {
+          ...DEFAULT_SETTINGS,
+          companyName: meta.company_name || "",
+          legalForm: meta.legal_form || "SARL",
+          ninea: meta.ninea || "",
+          rccm: meta.rccm || "",
+          address: meta.address || "",
+          city: meta.city || "",
+          country: meta.country || "Sénégal",
+          email: meta.company_email || user.email || "",
+          phone: meta.company_phone || meta.phone || "",
+          whatsappNumber: meta.whatsapp || "",
+          signatureName: meta.full_name || "",
+        };
+        setSettings(initialFromMeta);
+        saveStoredSettings(initialFromMeta);
+        return;
+      }
+
       setSettings(getStoredSettings());
     };
     load();
@@ -157,7 +187,7 @@ export default function SettingsPage() {
       .replace(/{issue_date}/g, "24/10/2026")
       .replace(/{due_date}/g, "08/11/2026")
       .replace(/{status}/g, sampleStatus)
-      .replace(/{company_name}/g, settings.companyName || "Dakar Digital Agency");
+      .replace(/{company_name}/g, settings.companyName || "Mon Entreprise");
   }, [settings, whatsappEditLang]);
 
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -245,12 +275,26 @@ export default function SettingsPage() {
   };
 
   const handleReset = async () => {
-    if (confirm("Voulez-vous réinitialiser tous les paramètres aux valeurs par défaut ?")) {
-      setSettings(DEFAULT_SETTINGS);
+    if (confirm("Voulez-vous réinitialiser tous les paramètres aux valeurs d'origine ?")) {
+      const resetSettings: CompanySettings = {
+        ...DEFAULT_SETTINGS,
+        companyName: user?.user_metadata?.company_name || "",
+        legalForm: user?.user_metadata?.legal_form || "SARL",
+        ninea: user?.user_metadata?.ninea || "",
+        rccm: user?.user_metadata?.rccm || "",
+        address: user?.user_metadata?.address || "",
+        city: user?.user_metadata?.city || "",
+        country: user?.user_metadata?.country || "Sénégal",
+        email: user?.user_metadata?.company_email || user?.email || "",
+        phone: user?.user_metadata?.company_phone || user?.user_metadata?.phone || "",
+        whatsappNumber: user?.user_metadata?.whatsapp || "",
+        signatureName: user?.user_metadata?.full_name || "",
+      };
+      setSettings(resetSettings);
       if (user?.id) {
-        await saveCompanySettings(DEFAULT_SETTINGS, user.id);
+        await saveCompanySettings(resetSettings, user.id);
       }
-      saveStoredSettings(DEFAULT_SETTINGS);
+      saveStoredSettings(resetSettings);
       setToastMessage("Paramètres réinitialisés avec succès");
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
@@ -1015,9 +1059,9 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
-                        value={settings.signatureName || "Moussa Diop"}
+                        value={settings.signatureName || ""}
                         onChange={(e) => handleChange("signatureName", e.target.value)}
-                        placeholder="Ex: Moussa Diop, Directeur Général"
+                        placeholder="Ex: Prénom & Nom, Fonction (ex: Gérant)"
                         className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1157,7 +1201,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.waveNumber}
                         onChange={(e) => handleChange("waveNumber", e.target.value)}
-                        placeholder="+221 77 845 22 10"
+                        placeholder="+221 77 000 00 00"
                         className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1170,7 +1214,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.waveAccountName}
                         onChange={(e) => handleChange("waveAccountName", e.target.value)}
-                        placeholder="Dakar Digital Agency"
+                        placeholder="Ex: Nom du compte marchand Wave"
                         className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1227,7 +1271,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.omNumber}
                         onChange={(e) => handleChange("omNumber", e.target.value)}
-                        placeholder="+221 78 520 14 30"
+                        placeholder="+221 78 000 00 00"
                         className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1240,7 +1284,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.omMerchantCode}
                         onChange={(e) => handleChange("omMerchantCode", e.target.value)}
-                        placeholder="OM-DKR-5542"
+                        placeholder="Ex: OM-DKR-1234"
                         className="w-full px-3.5 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1341,7 +1385,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.bankName}
                         onChange={(e) => handleChange("bankName", e.target.value)}
-                        placeholder="Bank of Africa (BOA Sénégal) / CBAO / Société Générale"
+                        placeholder="Ex: CBAO, BOA Sénégal, Société Générale, Ecobank..."
                         className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1354,7 +1398,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.bankAccountHolder}
                         onChange={(e) => handleChange("bankAccountHolder", e.target.value)}
-                        placeholder="Dakar Digital Agency SARL"
+                        placeholder="Ex: Nom ou raison sociale du titulaire"
                         className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1367,7 +1411,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.bankIban}
                         onChange={(e) => handleChange("bankIban", e.target.value)}
-                        placeholder="SN08 SN03 4010 0200 4589 2100 12"
+                        placeholder="SN08 SN..."
                         className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>
@@ -1380,7 +1424,7 @@ export default function SettingsPage() {
                         type="text"
                         value={settings.bankRibKey}
                         onChange={(e) => handleChange("bankRibKey", e.target.value)}
-                        placeholder="45"
+                        placeholder="Ex: 45"
                         className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
                       />
                     </div>

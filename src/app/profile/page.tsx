@@ -58,7 +58,7 @@ export default function ProfilePage() {
     country: CURRENT_USER.country,
     ninea: CURRENT_USER.ninea,
     rccm: CURRENT_USER.rccm,
-    bio: "Dirigeant d'entreprise et responsable des opérations financières chez Dakar Digital Agency.",
+    bio: "",
     avatarImageData: CURRENT_USER.avatarUrl || "",
   });
 

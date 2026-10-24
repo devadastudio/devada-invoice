@@ -173,12 +173,28 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
                   Émetteur :
                 </span>
                 <p className="font-bold text-sm text-slate-900 dark:text-white">
-                  Dakar Digital Agency SARL
+                  {settings.companyName || "Mon Entreprise"}
                 </p>
-                <p className="text-slate-600 dark:text-slate-400">Immeuble Kébé, Avenue Jean Jaurès</p>
-                <p className="text-slate-600 dark:text-slate-400">Dakar - Plateau, Sénégal</p>
-                <p className="text-slate-500">NINEA : 006458921 2R8 • RCCM : SN-DKR-2022-B-1425</p>
-                <p className="text-slate-500">contact@dakardigital.sn • +221 33 821 00 11</p>
+                {settings.address && (
+                  <p className="text-slate-600 dark:text-slate-400">{settings.address}</p>
+                )}
+                <p className="text-slate-600 dark:text-slate-400">
+                  {settings.city ? `${settings.city}, ` : ""}{settings.country || "Sénégal"}
+                </p>
+                {(settings.ninea || settings.rccm) && (
+                  <p className="text-slate-500 font-mono text-[11px]">
+                    {settings.ninea ? `NINEA : ${settings.ninea}` : ""}
+                    {settings.ninea && settings.rccm ? " • " : ""}
+                    {settings.rccm ? `RCCM : ${settings.rccm}` : ""}
+                  </p>
+                )}
+                {(settings.email || settings.phone) && (
+                  <p className="text-slate-500">
+                    {settings.email || ""}
+                    {settings.email && settings.phone ? " • " : ""}
+                    {settings.phone || ""}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1 text-xs bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -283,17 +299,20 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
             {/* Pied de page institutionnel de l'entreprise */}
             <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 text-center space-y-1 text-xs text-slate-500 dark:text-slate-400">
               <p className="font-medium text-slate-700 dark:text-slate-300">
-                {[settings.companyName || CURRENT_USER.company, `(${settings.legalForm || "SARL"})`].filter(Boolean).join(" ")}
-                {" • "}
-                <span>NINEA : <strong className="font-mono text-slate-700 dark:text-slate-300">{settings.ninea || CURRENT_USER.ninea}</strong></span>
-                {" • "}
-                <span>RCCM : <strong className="font-mono text-slate-700 dark:text-slate-300">{settings.rccm || CURRENT_USER.rccm}</strong></span>
+                {[
+                  settings.companyName || "Mon Entreprise",
+                  settings.legalForm ? `(${settings.legalForm})` : "",
+                  settings.ninea ? `NINEA : ${settings.ninea}` : "",
+                  settings.rccm ? `RCCM : ${settings.rccm}` : "",
+                ].filter(Boolean).join(" • ")}
               </p>
               <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                {[settings.address || CURRENT_USER.address, settings.city || CURRENT_USER.city, "Sénégal"].filter(Boolean).join(", ")}
-                {" • "}Tél : {settings.phone || CURRENT_USER.phone}
-                {" • "}Email : {settings.email || CURRENT_USER.email}
-                {settings.website ? ` • ${settings.website}` : ""}
+                {[
+                  [settings.address, settings.city, settings.country || "Sénégal"].filter(Boolean).join(", "),
+                  settings.phone ? `Tél : ${settings.phone}` : "",
+                  settings.email ? `Email : ${settings.email}` : "",
+                  settings.website ? settings.website : "",
+                ].filter(Boolean).join(" • ")}
               </p>
             </div>
           </div>

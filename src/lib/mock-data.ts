@@ -80,18 +80,18 @@ export interface MonthlyStats {
 }
 
 export const CURRENT_USER = {
-  name: "Amadou Diallo",
-  email: "amadou@dakardigital.sn",
-  company: "Dakar Digital Agency SARL",
-  address: "Immeuble Kébé, Avenue Jean Jaurès, Plateau",
-  city: "Dakar",
-  country: "Sénégal 🇸🇳",
-  ninea: "006458921 2R8",
-  rccm: "SN-DKR-2022-B-1425",
-  phone: "+221 33 821 00 11",
+  name: "Utilisateur",
+  email: "",
+  company: "",
+  address: "",
+  city: "",
+  country: "Sénégal",
+  ninea: "",
+  rccm: "",
+  phone: "",
   currency: "FCFA",
-  avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-  initials: "AD",
+  avatarUrl: "",
+  initials: "U",
   role: "Directeur Général",
 };
 
@@ -2293,18 +2293,18 @@ Documento PDF ufficiale in allegato.
 Grazie per la fiducia!`;
 
 export const DEFAULT_SETTINGS: CompanySettings = {
-  companyName: "Dakar Digital Agency SARL",
+  companyName: "",
   legalForm: "SARL",
-  tradeName: "Dakar Digital",
-  ninea: "006458921 2R8",
-  rccm: "SN-DKR-2022-B-1425",
-  address: "Immeuble Kébé, Avenue Jean Jaurès, Plateau",
-  city: "Dakar",
-  postalCode: "10200",
-  country: "Sénégal 🇸🇳",
-  email: "contact@dakardigital.sn",
-  phone: "+221 33 821 00 11",
-  website: "https://dakardigital.sn",
+  tradeName: "",
+  ninea: "",
+  rccm: "",
+  address: "",
+  city: "",
+  postalCode: "",
+  country: "Sénégal",
+  email: "",
+  phone: "",
+  website: "",
   currency: "FCFA",
   defaultLanguage: "fr",
   whatsappDefaultLanguage: "fr",
@@ -2315,34 +2315,34 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   defaultTaxRate: 18,
   invoicePrefix: "FAC-",
   defaultDueDays: 15,
-  nextInvoiceSequence: 51,
-  footerLegalText: "SARL au capital de 1 000 000 FCFA — NINEA : 006458921 2R8 — RCCM : SN-DKR-2022-B-1425. Règlement sous 15 jours à réception.",
+  nextInvoiceSequence: 1,
+  footerLegalText: "",
   lateFeeInterestRate: 1.5,
-  waveEnabled: true,
-  waveNumber: "+221 77 845 22 10",
-  waveAccountName: "Dakar Digital Agency",
-  omEnabled: true,
-  omNumber: "+221 78 520 14 30",
-  omMerchantCode: "OM-DKR-5542",
-  stripeEnabled: true,
-  bankEnabled: true,
-  bankName: "Bank of Africa (BOA Sénégal)",
-  bankIban: "SN08 SN03 4010 0200 4589 2100 12",
-  bankRibKey: "45",
-  bankAccountHolder: "Dakar Digital Agency SARL",
+  waveEnabled: false,
+  waveNumber: "",
+  waveAccountName: "",
+  omEnabled: false,
+  omNumber: "",
+  omMerchantCode: "",
+  stripeEnabled: false,
+  bankEnabled: false,
+  bankName: "",
+  bankIban: "",
+  bankRibKey: "",
+  bankAccountHolder: "",
   emailNotifications: true,
   autoPaymentReminder: true,
   reminderDaysBeforeDue: 3,
   rateEur: 655.957,
   rateUsd: 600.0,
   signatureType: "name",
-  signatureName: "Moussa Diop",
+  signatureName: "",
   signatureImageData: "",
   companyLogo: "",
   showExchangeRateOnInvoices: false,
 };
 
-const SETTINGS_STORAGE_KEY = "devada_settings_data_v2";
+const SETTINGS_STORAGE_KEY = "devada_settings_data_v3";
 
 export function getStoredSettings(): CompanySettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
@@ -2352,7 +2352,12 @@ export function getStoredSettings(): CompanySettings {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS));
       return DEFAULT_SETTINGS;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (parsed.companyName === "Dakar Digital Agency SARL") parsed.companyName = "";
+    if (parsed.bankName === "Bank of Africa (BOA Sénégal)") parsed.bankName = "";
+    if (parsed.bankIban === "SN08 SN03 4010 0200 4589 2100 12") parsed.bankIban = "";
+    if (parsed.signatureName === "Moussa Diop") parsed.signatureName = "";
+    return parsed;
   } catch {
     return DEFAULT_SETTINGS;
   }

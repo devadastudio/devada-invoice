@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import { Invoice, CompanySettings, CURRENT_USER, DEFAULT_SETTINGS } from "@/lib/mock-data";
+import { Invoice, CompanySettings, DEFAULT_SETTINGS } from "@/lib/mock-data";
 import { formatFCFA, formatDate, formatCurrency } from "@/lib/utils";
 import { getInvoiceTranslations, isDefaultPaymentNotice, translateInvoiceText, AppLanguage } from "@/lib/i18n";
 
@@ -181,24 +181,40 @@ export function buildInvoiceVectorPDF(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(settings.companyName || CURRENT_USER.company, 14, y + 5);
+  const companyTitle = settings.companyName || "Mon Entreprise";
+  doc.text(companyTitle, 14, y + 5);
 
+  let currentY = y + 9.5;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(100, 116, 139);
-  doc.text(settings.address || CURRENT_USER.address, 14, y + 9.5);
-  doc.text(`${settings.city || CURRENT_USER.city}, Sénégal`, 14, y + 13.5);
 
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(71, 85, 105);
-  doc.text(`${t.clientNinea} : `, 14, y + 17.5);
-  doc.setFont("helvetica", "normal");
-  doc.text(settings.ninea || CURRENT_USER.ninea, 32, y + 17.5);
+  if (settings.address) {
+    doc.text(settings.address, 14, currentY);
+    currentY += 4;
+  }
+  const cityParts = [settings.city, settings.country || "Sénégal"].filter(Boolean).join(", ");
+  if (cityParts) {
+    doc.text(cityParts, 14, currentY);
+    currentY += 4;
+  }
 
-  doc.setFont("helvetica", "bold");
-  doc.text(`${t.clientRccm} : `, 14, y + 21.5);
-  doc.setFont("helvetica", "normal");
-  doc.text(settings.rccm || "SN-DKR-2022-B-1425", 32, y + 21.5);
+  if (settings.ninea) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(71, 85, 105);
+    doc.text(`${t.clientNinea} : `, 14, currentY);
+    doc.setFont("helvetica", "normal");
+    doc.text(settings.ninea, 32, currentY);
+    currentY += 4;
+  }
+
+  if (settings.rccm) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(71, 85, 105);
+    doc.text(`${t.clientRccm} : `, 14, currentY);
+    doc.setFont("helvetica", "normal");
+    doc.text(settings.rccm, 32, currentY);
+  }
 
   // Right: Client (To) - in a subtle card
   doc.setFillColor(248, 250, 252);
@@ -457,16 +473,21 @@ export function buildInvoiceVectorPDF(
   }
 
   if (!sigDrawn) {
-    doc.setFont("helvetica", "bolditalic");
-    doc.setFontSize(12);
-    doc.setTextColor(15, 23, 42);
-    doc.text(settings.signatureName || CURRENT_USER.name, 192, y + 7, { align: "right" });
+    const signText = settings.signatureName || settings.companyName || "";
+    if (signText) {
+      doc.setFont("helvetica", "bolditalic");
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42);
+      doc.text(signText, 192, y + 7, { align: "right" });
+    }
   }
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.setTextColor(148, 163, 184);
-  doc.text(`Pour ${settings.companyName || CURRENT_USER.company}`, 192, y + (sigDrawn ? 14 : 11), { align: "right" });
+  if (settings.companyName) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Pour ${settings.companyName}`, 192, y + (sigDrawn ? 14 : 11), { align: "right" });
+  }
 
   // --- BOTTOM FOOTER: COMPANY CONTACT & LEGAL INFO ---
   const footerY = 282;
@@ -479,20 +500,28 @@ export function buildInvoiceVectorPDF(
   doc.setTextColor(100, 116, 139);
 
   // Line 1: Legal Name, Form, NINEA, RCCM
-  const companyTitle = settings.companyName || CURRENT_USER.company;
-  const legalForm = settings.legalForm || "SARL";
-  const ninea = settings.ninea || CURRENT_USER.ninea;
-  const rccm = settings.rccm || CURRENT_USER.rccm;
-  const line1 = `${companyTitle} (${legalForm}) • NINEA : ${ninea} • RCCM : ${rccm}`;
-  doc.text(line1, 105, footerY + 3.8, { align: "center" });
+  const line1Parts: string[] = [];
+  if (settings.companyName) {
+    line1Parts.push(settings.legalForm ? `${settings.companyName} (${settings.legalForm})` : settings.companyName);
+  }
+  if (settings.ninea) line1Parts.push(`NINEA : ${settings.ninea}`);
+  if (settings.rccm) line1Parts.push(`RCCM : ${settings.rccm}`);
+  const line1 = line1Parts.join(" • ");
+  if (line1) {
+    doc.text(line1, 105, footerY + 3.8, { align: "center" });
+  }
 
   // Line 2: Full Address, Phone, Email, Website
-  const address = `${settings.address || CURRENT_USER.address}, ${settings.city || CURRENT_USER.city} - Sénégal`;
-  const phone = settings.phone || CURRENT_USER.phone;
-  const email = settings.email || CURRENT_USER.email;
-  const web = settings.website ? ` • ${settings.website}` : "";
-  const line2 = `${address} • Tél : ${phone} • Email : ${email}${web}`;
-  doc.text(line2, 105, footerY + 7.2, { align: "center" });
+  const line2Parts: string[] = [];
+  const locParts = [settings.address, settings.city, settings.country].filter(Boolean);
+  if (locParts.length > 0) line2Parts.push(locParts.join(", "));
+  if (settings.phone) line2Parts.push(`Tél : ${settings.phone}`);
+  if (settings.email) line2Parts.push(`Email : ${settings.email}`);
+  if (settings.website) line2Parts.push(settings.website);
+  const line2 = line2Parts.join(" • ");
+  if (line2) {
+    doc.text(line2, 105, footerY + 7.2, { align: "center" });
+  }
 
   return doc;
 }
