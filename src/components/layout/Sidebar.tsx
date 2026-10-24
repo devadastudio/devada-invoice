@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CURRENT_USER, getStoredInvoices } from "@/lib/mock-data";
 import { getStoredLanguage, getPlatformTranslations, AppLanguage } from "@/lib/i18n";
+import { useAuth } from "@/lib/supabase/auth-context";
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -30,6 +31,7 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, profile, companySettings, signOut } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [invoicesCount, setInvoicesCount] = useState<number>(50);
   const [userProfile, setUserProfile] = useState<{
@@ -340,21 +342,23 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             <div className="flex items-center justify-between gap-1.5 p-0.5">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="relative flex-shrink-0">
-                  {userProfile.avatarImageData ? (
+                  {profile?.avatar_url || userProfile.avatarImageData ? (
                     <img
-                      src={userProfile.avatarImageData}
-                      alt={userProfile.name}
+                      src={profile?.avatar_url || userProfile.avatarImageData}
+                      alt={profile?.full_name || userProfile.name}
                       className="w-8 h-8 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10 group-hover:scale-105 transition-transform"
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform">
-                      {userProfile.name
-                        ? userProfile.name
+                      {profile?.full_name
+                        ? profile.full_name
                             .split(" ")
                             .map((s) => s[0])
                             .join("")
                             .slice(0, 2)
                             .toUpperCase()
+                        : user?.email
+                        ? user.email.slice(0, 2).toUpperCase()
                         : CURRENT_USER.initials}
                     </div>
                   )}
@@ -362,10 +366,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {userProfile.name || CURRENT_USER.name}
+                    {profile?.full_name || (user?.email ? user.email.split("@")[0] : userProfile.name)}
                   </p>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                    {userProfile.company || CURRENT_USER.company}
+                    {companySettings?.company_name || userProfile.company}
                   </p>
                 </div>
               </div>
@@ -376,15 +380,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             </div>
           </Link>
 
-          {/* Bouton de déconnexion menant à la landing page */}
+          {/* Bouton de déconnexion officiel Supabase */}
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               if (onMobileClose) onMobileClose();
-              router.push("/landing");
+              await signOut();
             }}
             className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 text-slate-400 hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-800/80 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all shadow-soft active:scale-95 group"
-            title="Se déconnecter et aller à la landing page"
+            title="Se déconnecter de votre compte"
             aria-label="Se déconnecter"
           >
             <LogOut className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />

@@ -24,6 +24,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { AuthProvider } from "@/lib/supabase/auth-context";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -52,7 +54,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F8FAFC] dark:bg-[#090D16] text-slate-900 dark:text-slate-100 min-h-screen`}
       >
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

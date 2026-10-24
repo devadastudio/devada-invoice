@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { Database } from "@/types/database.types";
 
 /**
- * Met à jour la session d'authentification Supabase lors de chaque requête HTTP
- * et propage les cookies rafraîchis dans la réponse.
+ * Met à jour la session d'authentification Supabase lors de chaque requête HTTP,
+ * propage les cookies rafraîchis dans la réponse et protège les routes privées.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -58,8 +58,30 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // IMPORTANT: getUser() valide le token JWT auprès des serveurs Supabase Auth
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  // Redirection des utilisateurs déjà connectés accédant à /auth/login ou /auth/register
+  if (user && (pathname === "/auth/login" || pathname === "/auth/register")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  // Protection des routes de l'application
+  const isPublicRoute =
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/landing") ||
+    pathname.startsWith("/api/auth");
+
+  if (!user && !isPublicRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
+  }
 
   return response;
 }
