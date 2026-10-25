@@ -2373,20 +2373,40 @@ export function saveStoredSettings(settings: CompanySettings) {
   }
 }
 
-export function getNextInvoiceNumber(invoicesList?: Invoice[]): string {
+export function getNextInvoiceNumber(
+  invoicesList?: Invoice[],
+  targetDateOrYear?: string | number,
+  prefix: string = "FAC-"
+): string {
   const invoices = invoicesList !== undefined ? invoicesList : getStoredInvoices();
+
+  let targetYear: number;
+  if (typeof targetDateOrYear === "number") {
+    targetYear = targetDateOrYear;
+  } else if (typeof targetDateOrYear === "string" && targetDateOrYear.trim()) {
+    const parsed = parseInt(targetDateOrYear.slice(0, 4), 10);
+    targetYear = isNaN(parsed) ? new Date().getFullYear() : parsed;
+  } else {
+    targetYear = new Date().getFullYear();
+  }
+
+  const cleanPrefix = prefix || "FAC-";
   let maxSeq = 0;
+
   invoices.forEach((inv) => {
-    const match = inv.invoiceNumber.match(/FAC-(\d{4})-(\d+)/);
-    if (match && match[2]) {
-      const num = parseInt(match[2], 10);
-      if (!isNaN(num) && num > maxSeq) {
-        maxSeq = num;
+    const match = inv.invoiceNumber.match(/(?:.*-)?(\d{4})-(\d+)/);
+    if (match) {
+      const invYear = parseInt(match[1], 10);
+      const invSeq = parseInt(match[2], 10);
+      if (invYear === targetYear && !isNaN(invSeq) && invSeq > maxSeq) {
+        maxSeq = invSeq;
       }
     }
   });
-  const year = new Date().getFullYear();
-  return `FAC-${year}-${String(maxSeq + 1).padStart(4, "0")}`;
+
+  const nextSeq = maxSeq + 1;
+  const seqFormatted = String(nextSeq).padStart(3, "0");
+  return `${cleanPrefix}${targetYear}-${seqFormatted}`;
 }
 
 export interface AppNotification {

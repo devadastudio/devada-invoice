@@ -118,7 +118,7 @@ export function CreateInvoiceModal({ isOpen, onClose, onCreated }: CreateInvoice
       return;
     }
 
-    const nextNumber = getNextInvoiceNumber();
+    const nextNumber = getNextInvoiceNumber(undefined, issueDate);
     const newInv: Invoice = {
       id: `inv-${Date.now()}`,
       invoiceNumber: nextNumber,

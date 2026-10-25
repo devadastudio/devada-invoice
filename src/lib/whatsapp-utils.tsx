@@ -129,7 +129,7 @@ export function buildWhatsAppInvoiceMessage(
     }
   }
 
-  const companyName = activeSettings.companyName || CURRENT_USER.company;
+  const companyName = activeSettings.companyName || "Mon Entreprise";
 
   return skeleton
     .replace(/{client_name}/g, invoice.clientName || "Cher Client")

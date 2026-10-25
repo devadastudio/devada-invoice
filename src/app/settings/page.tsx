@@ -57,6 +57,7 @@ import {
 } from "@/lib/i18n";
 import { WhatsAppIcon } from "@/lib/whatsapp-utils";
 import { cn } from "@/lib/utils";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 type SettingsTab =
   | "general"
@@ -75,6 +76,7 @@ export default function SettingsPage() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [whatsappEditLang, setWhatsappEditLang] = useState<AppLanguage>("fr");
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -85,10 +87,17 @@ export default function SettingsPage() {
         currentUserId = authData.user?.id;
       }
 
+      const defaultSign = user?.user_metadata?.full_name
+        ? (user.user_metadata.role ? `${user.user_metadata.full_name} (${user.user_metadata.role})` : user.user_metadata.full_name)
+        : "";
+
       if (currentUserId) {
         try {
           const dbSettings = await fetchCompanySettings(currentUserId);
           if (dbSettings) {
+            if (!dbSettings.signatureName && defaultSign) {
+              dbSettings.signatureName = defaultSign;
+            }
             setSettings(dbSettings);
             saveStoredSettings(dbSettings);
             return;
@@ -113,7 +122,7 @@ export default function SettingsPage() {
           email: meta.company_email || user.email || "",
           phone: meta.company_phone || meta.phone || "",
           whatsappNumber: meta.whatsapp || "",
-          signatureName: meta.full_name || "",
+          signatureName: defaultSign,
         };
         setSettings(initialFromMeta);
         saveStoredSettings(initialFromMeta);
@@ -237,10 +246,6 @@ export default function SettingsPage() {
             handleChange("companyLogo", uploadRes.url);
           }
         }
-
-        setToastMessage("Logo de l'entreprise chargé avec succès !");
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
       };
       reader.readAsDataURL(file);
     }
@@ -248,9 +253,6 @@ export default function SettingsPage() {
 
   const handleRemoveLogo = () => {
     handleChange("companyLogo", "");
-    setToastMessage("Logo personnalisé supprimé. Le logo Devada Invoice sera utilisé.");
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
   };
 
   const handleSave = async () => {
@@ -274,31 +276,38 @@ export default function SettingsPage() {
     setTimeout(() => setShowToast(false), 3500);
   };
 
-  const handleReset = async () => {
-    if (confirm("Voulez-vous réinitialiser tous les paramètres aux valeurs d'origine ?")) {
-      const resetSettings: CompanySettings = {
-        ...DEFAULT_SETTINGS,
-        companyName: user?.user_metadata?.company_name || "",
-        legalForm: user?.user_metadata?.legal_form || "SARL",
-        ninea: user?.user_metadata?.ninea || "",
-        rccm: user?.user_metadata?.rccm || "",
-        address: user?.user_metadata?.address || "",
-        city: user?.user_metadata?.city || "",
-        country: user?.user_metadata?.country || "Sénégal",
-        email: user?.user_metadata?.company_email || user?.email || "",
-        phone: user?.user_metadata?.company_phone || user?.user_metadata?.phone || "",
-        whatsappNumber: user?.user_metadata?.whatsapp || "",
-        signatureName: user?.user_metadata?.full_name || "",
-      };
-      setSettings(resetSettings);
-      if (user?.id) {
-        await saveCompanySettings(resetSettings, user.id);
-      }
-      saveStoredSettings(resetSettings);
-      setToastMessage("Paramètres réinitialisés avec succès");
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+  const handleReset = () => {
+    setShowResetConfirmModal(true);
+  };
+
+  const confirmReset = async () => {
+    setShowResetConfirmModal(false);
+    const meta = user?.user_metadata;
+    const defaultSign = meta?.full_name
+      ? (meta.role ? `${meta.full_name} (${meta.role})` : meta.full_name)
+      : "";
+    const resetSettings: CompanySettings = {
+      ...DEFAULT_SETTINGS,
+      companyName: meta?.company_name || "",
+      legalForm: meta?.legal_form || "SARL",
+      ninea: meta?.ninea || "",
+      rccm: meta?.rccm || "",
+      address: meta?.address || "",
+      city: meta?.city || "",
+      country: meta?.country || "Sénégal",
+      email: meta?.company_email || user?.email || "",
+      phone: meta?.company_phone || meta?.phone || "",
+      whatsappNumber: meta?.whatsapp || "",
+      signatureName: defaultSign,
+    };
+    setSettings(resetSettings);
+    if (user?.id) {
+      await saveCompanySettings(resetSettings, user.id);
     }
+    saveStoredSettings(resetSettings);
+    setToastMessage("Paramètres réinitialisés avec succès");
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
   };
 
   const tabs = [
@@ -661,7 +670,7 @@ export default function SettingsPage() {
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Email de facturation
+                        Email de contact
                       </label>
                       <div className="relative">
                         <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -669,7 +678,7 @@ export default function SettingsPage() {
                           type="email"
                           value={settings.email}
                           onChange={(e) => handleChange("email", e.target.value)}
-                          placeholder="contact@dakardigital.sn"
+                          placeholder="contact@votre-entreprise.sn"
                           className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                         />
                       </div>
@@ -782,9 +791,6 @@ export default function SettingsPage() {
                         handleChange("currency", newCurr);
                         const updated = { ...settings, currency: newCurr };
                         saveStoredSettings(updated);
-                        setToastMessage(`Devise de facturation mise à jour : ${newCurr}`);
-                        setShowToast(true);
-                        setTimeout(() => setShowToast(false), 3000);
                       }}
                       className="px-3.5 py-2 font-mono font-bold text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
@@ -868,34 +874,23 @@ export default function SettingsPage() {
                   {/* Numérotation des factures */}
                   <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Séquence & Préfixe de numérotation
+                      Préfixe de numérotation
                     </h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Préfixe des factures
-                        </label>
-                        <input
-                          type="text"
-                          value={settings.invoicePrefix}
-                          onChange={(e) => handleChange("invoicePrefix", e.target.value)}
-                          placeholder="FAC-"
-                          className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Prochain numéro séquentiel
-                        </label>
-                        <input
-                          type="number"
-                          value={settings.nextInvoiceSequence}
-                          onChange={(e) => handleChange("nextInvoiceSequence", Number(e.target.value))}
-                          className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
-                        />
-                      </div>
+                    <div className="max-w-sm space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Préfixe des factures
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.invoicePrefix}
+                        onChange={(e) => handleChange("invoicePrefix", e.target.value)}
+                        placeholder="FAC-"
+                        className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
+                      />
+                      <p className="text-[11px] text-slate-400">
+                        La numérotation annuelle reprend automatiquement à 001 à chaque nouvelle année (ex: FAC-2027-001).
+                      </p>
                     </div>
                   </div>
 
@@ -1207,9 +1202,21 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Nom du compte marchand Wave
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Nom du compte marchand Wave
+                        </label>
+                        {settings.companyName && (
+                          <button
+                            type="button"
+                            onClick={() => handleChange("waveAccountName", settings.companyName)}
+                            className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
+                          >
+                            <Building2 className="w-3 h-3" />
+                            <span>Utiliser le nom de l&apos;entreprise</span>
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={settings.waveAccountName}
@@ -1277,9 +1284,21 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Code Marchand (facultatif)
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Code Marchand (facultatif)
+                        </label>
+                        {settings.companyName && (
+                          <button
+                            type="button"
+                            onClick={() => handleChange("omMerchantCode", settings.companyName)}
+                            className="text-[11px] text-orange-600 dark:text-orange-400 font-semibold hover:underline flex items-center gap-1"
+                          >
+                            <Building2 className="w-3 h-3" />
+                            <span>Utiliser le nom de l&apos;entreprise</span>
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={settings.omMerchantCode}
@@ -1381,19 +1400,34 @@ export default function SettingsPage() {
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Nom de la banque
                       </label>
-                      <input
-                        type="text"
-                        value={settings.bankName}
-                        onChange={(e) => handleChange("bankName", e.target.value)}
-                        placeholder="Ex: CBAO, BOA Sénégal, Société Générale, Ecobank..."
-                        className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
-                      />
+                      <div className="relative">
+                        <Landmark className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          value={settings.bankName}
+                          onChange={(e) => handleChange("bankName", e.target.value)}
+                          placeholder="Ex: CBAO, BOA Sénégal, Société Générale, Ecobank..."
+                          className="w-full pl-9 pr-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Titulaire du compte bancaire
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Titulaire du compte bancaire
+                        </label>
+                        {settings.companyName && (
+                          <button
+                            type="button"
+                            onClick={() => handleChange("bankAccountHolder", settings.companyName)}
+                            className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1"
+                          >
+                            <Building2 className="w-3 h-3" />
+                            <span>Utiliser le nom de l&apos;entreprise</span>
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={settings.bankAccountHolder}
@@ -1821,6 +1855,26 @@ export default function SettingsPage() {
                       })}
                     </div>
                   </div>
+
+                  {/* Bouton d'enregistrement explicite du modèle WhatsApp */}
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <p className="text-[11px] text-slate-400">
+                      Enregistre le squelette et la langue par défaut dans la base de données.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white shadow-sm shadow-emerald-500/25 transition-all flex items-center gap-2 disabled:opacity-60"
+                    >
+                      {isSaving ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5" />
+                      )}
+                      <span>Enregistrer le modèle</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1901,6 +1955,19 @@ export default function SettingsPage() {
           <span className="text-xs sm:text-sm font-semibold">{toastMessage}</span>
         </div>
       )}
+
+      {/* Modal de confirmation de réinitialisation des paramètres */}
+      <ConfirmModal
+        isOpen={showResetConfirmModal}
+        onClose={() => setShowResetConfirmModal(false)}
+        onConfirm={confirmReset}
+        title="Réinitialiser les paramètres"
+        description="Êtes-vous sûr de vouloir réinitialiser vos paramètres ? Vos coordonnées d'inscription seront conservées et les réglages de paiement ou personnalisations seront remis aux valeurs d'origine."
+        confirmLabel="Oui, réinitialiser"
+        cancelLabel="Annuler"
+        variant="warning"
+        icon="warning"
+      />
     </div>
   );
 }
