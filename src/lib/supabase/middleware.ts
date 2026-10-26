@@ -84,7 +84,7 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
+    url.pathname = pathname === "/" ? "/landing" : "/auth/login";
     return NextResponse.redirect(url);
   }
 
