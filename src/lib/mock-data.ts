@@ -2260,6 +2260,60 @@ export interface CompanySettings {
   whatsappTemplateEn?: string;
   whatsappTemplateIt?: string;
   whatsappDefaultLanguage?: "fr" | "en" | "it";
+  businessSector?: string;
+  prospectingPitch?: string;
+}
+
+export type LeadStatus = "new" | "contacted" | "replied" | "converted" | "ignored";
+export type LeadChannel = "whatsapp" | "email" | "sms";
+export type LeadTone = "professional" | "warm" | "direct";
+
+export interface LeadSearch {
+  id: string;
+  userId: string;
+  query: string;
+  city: string;
+  senderSector?: string;
+  maxResults: number;
+  apifyRunId?: string;
+  apifyDatasetId?: string;
+  status: "running" | "succeeded" | "failed";
+  resultsCount: number;
+  error?: string;
+  createdAt: string;
+}
+
+export interface LeadMessage {
+  id: string;
+  userId: string;
+  leadId: string;
+  channel: LeadChannel;
+  tone: LeadTone;
+  subject?: string;
+  content: string;
+  model?: string;
+  createdAt: string;
+}
+
+export interface Lead {
+  id: string;
+  userId: string;
+  searchId?: string;
+  placeId: string;
+  name: string;
+  category?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  website?: string;
+  rating?: number;
+  reviewsCount?: number;
+  mapsUrl?: string;
+  status: LeadStatus;
+  notes?: string;
+  convertedClientId?: string;
+  createdAt: string;
+  messages?: LeadMessage[];
 }
 
 export const DEFAULT_WHATSAPP_TEMPLATE_FR = `Bonjour *{client_name}*,
@@ -2340,6 +2394,8 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   signatureImageData: "",
   companyLogo: "",
   showExchangeRateOnInvoices: false,
+  businessSector: "",
+  prospectingPitch: "",
 };
 
 const SETTINGS_STORAGE_KEY = "devada_settings_data_v3";

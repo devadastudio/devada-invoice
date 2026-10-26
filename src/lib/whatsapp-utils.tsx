@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from "react";
 import {
   Invoice,
@@ -9,38 +10,13 @@ import {
   DEFAULT_WHATSAPP_TEMPLATE_EN,
   DEFAULT_WHATSAPP_TEMPLATE_IT,
 } from "@/lib/mock-data";
-import { formatFCFA, formatDate, formatCurrency, cn } from "@/lib/utils";
+import { formatFCFA, formatDate, formatCurrency, cn, sanitizeWhatsAppNumber, generateWhatsAppLink } from "@/lib/utils";
 import { generateInvoicePDFBlob, generateAndDownloadInvoicePDF } from "@/lib/pdf-generator";
 import { getInvoiceTranslations, AppLanguage, SUPPORTED_LANGUAGES } from "@/lib/i18n";
 import { X, Send, Copy, Check, Sparkles, FileText, Globe } from "lucide-react";
 
-/**
- * Format a phone number to WhatsApp international format (e.g. 221778241520)
- * Handles local numbers (+221, 00221, or 9-digit Senegalese numbers starting with 7 or 3)
- */
-export function sanitizeWhatsAppNumber(rawPhone?: string): string | null {
-  if (!rawPhone) return null;
-  // Keep only digits
-  let cleaned = rawPhone.replace(/\D/g, "");
-  if (!cleaned) return null;
+export { sanitizeWhatsAppNumber, generateWhatsAppLink };
 
-  // If starts with 00, strip leading zeroes
-  if (cleaned.startsWith("00")) {
-    cleaned = cleaned.substring(2);
-  }
-
-  // If 9 digits starting with 7 (77, 78, 76, 75, 70) or 3 (33), append 221 (Senegal code)
-  if (cleaned.length === 9 && (cleaned.startsWith("7") || cleaned.startsWith("3"))) {
-    cleaned = "221" + cleaned;
-  }
-
-  // Minimum length for a valid international phone
-  if (cleaned.length >= 8) {
-    return cleaned;
-  }
-
-  return null;
-}
 
 /**
  * Find the client's best WhatsApp number by matching the client in stored clients or falling back to invoice phone

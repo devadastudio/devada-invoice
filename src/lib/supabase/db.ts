@@ -8,6 +8,12 @@ import {
   Client,
   CompanySettings,
   AppNotification,
+  Lead,
+  LeadSearch,
+  LeadMessage,
+  LeadStatus,
+  LeadChannel,
+  LeadTone,
   DEFAULT_SETTINGS,
   DEFAULT_WHATSAPP_TEMPLATE_FR,
   DEFAULT_WHATSAPP_TEMPLATE_EN,
@@ -23,6 +29,9 @@ type InvoiceItemRow = Database["public"]["Tables"]["invoice_items"]["Row"];
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 type CompanySettingsRow = Database["public"]["Tables"]["company_settings"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
+type LeadSearchRow = Database["public"]["Tables"]["lead_searches"]["Row"];
+type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
+type LeadMessageRow = Database["public"]["Tables"]["lead_messages"]["Row"];
 
 // ============================================================================
 // CONVERTISSEURS BIDIRECTIONNELS
@@ -148,6 +157,8 @@ export function rowToSettings(row: CompanySettingsRow): CompanySettings {
     autoPaymentReminder: row.auto_payment_reminder ?? true,
     reminderDaysBeforeDue: Number(row.reminder_days_before_due) || 3,
     stripeEnabled: row.stripe_enabled ?? false,
+    businessSector: row.business_sector || "",
+    prospectingPitch: row.prospecting_pitch || "",
   };
 }
 
@@ -532,6 +543,8 @@ export async function saveCompanySettings(
     auto_payment_reminder: settings.autoPaymentReminder ?? true,
     reminder_days_before_due: settings.reminderDaysBeforeDue ?? 3,
     stripe_enabled: settings.stripeEnabled ?? false,
+    business_sector: settings.businessSector || null,
+    prospecting_pitch: settings.prospectingPitch || null,
   };
 
   const { error } = await supabase
@@ -627,3 +640,267 @@ export async function saveProfile(
 
   return { success: true };
 }
+
+// ============================================================================
+// OPÉRATIONS DEVADA LEADS (PROSPECTION B2B & MESSAGES IA)
+// ============================================================================
+
+export function rowToLeadSearch(row: LeadSearchRow): LeadSearch {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    query: row.query,
+    city: row.city,
+    senderSector: row.sender_sector || undefined,
+    maxResults: row.max_results,
+    apifyRunId: row.apify_run_id || undefined,
+    apifyDatasetId: row.apify_dataset_id || undefined,
+    status: (row.status as "running" | "succeeded" | "failed") || "running",
+    resultsCount: row.results_count,
+    error: row.error || undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export function rowToLead(row: LeadRow, messages: LeadMessage[] = []): Lead {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    searchId: row.search_id || undefined,
+    placeId: row.place_id,
+    name: row.name,
+    category: row.category || undefined,
+    address: row.address || undefined,
+    city: row.city || undefined,
+    phone: row.phone || undefined,
+    website: row.website || undefined,
+    rating: row.rating ? Number(row.rating) : undefined,
+    reviewsCount: row.reviews_count ?? 0,
+    mapsUrl: row.maps_url || undefined,
+    status: (row.status as LeadStatus) || "new",
+    notes: row.notes || undefined,
+    convertedClientId: row.converted_client_id || undefined,
+    createdAt: row.created_at,
+    messages,
+  };
+}
+
+export function rowToLeadMessage(row: LeadMessageRow): LeadMessage {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    leadId: row.lead_id,
+    channel: (row.channel as LeadChannel) || "whatsapp",
+    tone: (row.tone as LeadTone) || "professional",
+    subject: row.subject || undefined,
+    content: row.content,
+    model: row.model || undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchLeadSearches(userId: string): Promise<LeadSearch[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("lead_searches")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erreur fetchLeadSearches:", error);
+    return [];
+  }
+
+  return (data || []).map(rowToLeadSearch);
+}
+
+export async function fetchLeads(userId: string, searchId?: string): Promise<Lead[]> {
+  const supabase = createClient();
+
+  let query = supabase
+    .from("leads")
+    .select("*, lead_messages(*)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (searchId) {
+    query = query.eq("search_id", searchId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Erreur fetchLeads:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => {
+    const messages = Array.isArray(row.lead_messages)
+      ? row.lead_messages.map(rowToLeadMessage)
+      : [];
+    return rowToLead(row, messages);
+  });
+}
+
+export async function updateLeadStatus(
+  leadId: string,
+  status: LeadStatus,
+  notes?: string
+): Promise<boolean> {
+  const supabase = createClient();
+  const payload: any = { status };
+  if (notes !== undefined) payload.notes = notes;
+
+  const { error } = await supabase
+    .from("leads")
+    .update(payload)
+    .eq("id", leadId);
+
+  if (error) {
+    console.error("Erreur updateLeadStatus:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteLead(leadId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase.from("leads").delete().eq("id", leadId);
+
+  if (error) {
+    console.error("Erreur deleteLead:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteLeadSearch(searchId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase.from("lead_searches").delete().eq("id", searchId);
+
+  if (error) {
+    console.error("Erreur deleteLeadSearch:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function convertLeadToClient(
+  lead: Lead,
+  userId: string
+): Promise<{ client: Client | null; error?: string }> {
+  const supabase = createClient();
+
+  const avatarColors = [
+    "bg-blue-600",
+    "bg-emerald-600",
+    "bg-violet-600",
+    "bg-rose-600",
+    "bg-indigo-600",
+    "bg-amber-600",
+    "bg-teal-600",
+  ];
+  const avatarBg = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+
+  // 1. Créer le client dans la table clients
+  const clientPayload = {
+    user_id: userId,
+    name: lead.name,
+    email: null,
+    phone: lead.phone || null,
+    whatsapp: lead.phone || null,
+    city: lead.city || "Dakar",
+    address: lead.address || null,
+    country: "Sénégal",
+    avatar_bg: avatarBg,
+    status: "active",
+  };
+
+  const { data: newClient, error: clientError } = await supabase
+    .from("clients")
+    .insert(clientPayload)
+    .select()
+    .single();
+
+  if (clientError || !newClient) {
+    console.error("Erreur convertLeadToClient (création client):", clientError);
+    return { client: null, error: clientError?.message || "Impossible de créer le client" };
+  }
+
+  // 2. Marquer le lead comme converti
+  await supabase
+    .from("leads")
+    .update({
+      status: "converted",
+      converted_client_id: newClient.id,
+    })
+    .eq("id", lead.id);
+
+  const mappedClient: Client = {
+    id: newClient.id,
+    name: newClient.name,
+    email: newClient.email || "",
+    phone: newClient.phone || "",
+    whatsapp: newClient.whatsapp || undefined,
+    city: newClient.city || "",
+    address: newClient.address || "",
+    country: newClient.country || "Sénégal",
+    ninea: newClient.ninea || undefined,
+    rccm: newClient.rccm || undefined,
+    totalBilled: 0,
+    balanceDue: 0,
+    invoicesCount: 0,
+    avatarBg: newClient.avatar_bg || avatarBg,
+    status: (newClient.status as "active" | "inactive") || "active",
+    createdAt: newClient.created_at || new Date().toISOString(),
+  };
+
+  return { client: mappedClient };
+}
+
+export async function fetchLeadMessages(leadId: string): Promise<LeadMessage[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("lead_messages")
+    .select("*")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erreur fetchLeadMessages:", error);
+    return [];
+  }
+
+  return (data || []).map(rowToLeadMessage);
+}
+
+export async function saveLeadMessage(
+  message: Omit<LeadMessage, "id" | "createdAt">
+): Promise<LeadMessage | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("lead_messages")
+    .insert({
+      user_id: message.userId,
+      lead_id: message.leadId,
+      channel: message.channel,
+      tone: message.tone,
+      subject: message.subject || null,
+      content: message.content,
+      model: message.model || null,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error("Erreur saveLeadMessage:", error);
+    return null;
+  }
+
+  return rowToLeadMessage(data);
+}
+

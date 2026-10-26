@@ -1,7 +1,7 @@
 "use client";
 
 import jsPDF from "jspdf";
-import { Invoice, Client } from "@/lib/mock-data";
+import { Invoice, Client, Lead } from "@/lib/mock-data";
 import { formatFCFA, formatDate } from "@/lib/utils";
 
 // Trigger a browser file download
@@ -407,4 +407,59 @@ export function exportClientsToPDF(clients: Client[]) {
   doc.text("Devada Invoice SaaS © 2026 — Plateforme de facturation conforme OHADA & DGID Sénégal", pageWidth / 2, pageHeight - 6, { align: "center" });
 
   doc.save(`Rapport_Clients_Devada_Invoice_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+// -------------------------------------------------------------
+// DEVADA LEADS EXPORT
+// -------------------------------------------------------------
+
+export function exportLeadsToCSV(leads: Lead[], city?: string) {
+  const headers = [
+    "Nom Entreprise",
+    "Catégorie",
+    "Téléphone",
+    "Site Web",
+    "Adresse",
+    "Ville",
+    "Note Google",
+    "Nombre d'Avis",
+    "Lien Google Maps",
+    "Statut Prospection",
+    "Dernier Message",
+    "Date d'Ajout",
+  ];
+
+  const statusLabels: Record<string, string> = {
+    new: "Nouveau",
+    contacted: "Contacté",
+    replied: "A répondu",
+    converted: "Converti en client",
+    ignored: "Ignoré",
+  };
+
+  const rows = leads.map((lead) => {
+    const lastMsg = lead.messages && lead.messages.length > 0
+      ? lead.messages[0].content.replace(/[\r\n]+/g, " ").slice(0, 150)
+      : "";
+
+    return [
+      `"${lead.name.replace(/"/g, '""')}"`,
+      `"${(lead.category || "").replace(/"/g, '""')}"`,
+      `"${lead.phone || ""}"`,
+      `"${lead.website || ""}"`,
+      `"${(lead.address || "").replace(/"/g, '""')}"`,
+      `"${lead.city || "Dakar"}"`,
+      lead.rating ?? "",
+      lead.reviewsCount ?? 0,
+      `"${lead.mapsUrl || ""}"`,
+      `"${statusLabels[lead.status] || lead.status}"`,
+      `"${lastMsg.replace(/"/g, '""')}"`,
+      `"${formatDate(lead.createdAt.slice(0, 10))}"`,
+    ];
+  });
+
+  const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const safeCity = (city || "Senegal").replace(/[^a-zA-Z0-9_-]/g, "_");
+  downloadBlob(blob, `Leads_Devada_${safeCity}_${new Date().toISOString().slice(0, 10)}.csv`);
 }

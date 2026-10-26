@@ -125,4 +125,37 @@ export function formatAmountWithCurrency(
   return formatFCFA(amountInFCFA);
 }
 
+/**
+ * Format a phone number to WhatsApp international format (e.g. 221778241520)
+ * Handles local numbers (+221, 00221, or 9-digit Senegalese numbers starting with 7 or 3)
+ */
+export function sanitizeWhatsAppNumber(rawPhone?: string): string | null {
+  if (!rawPhone) return null;
+  let cleaned = rawPhone.replace(/\D/g, "");
+  if (!cleaned) return null;
+
+  if (cleaned.startsWith("00")) {
+    cleaned = cleaned.substring(2);
+  }
+
+  if (cleaned.length === 9 && (cleaned.startsWith("7") || cleaned.startsWith("3"))) {
+    cleaned = "221" + cleaned;
+  }
+
+  if (cleaned.length >= 8) {
+    return cleaned;
+  }
+
+  return null;
+}
+
+/**
+ * Generate a direct WhatsApp click-to-chat URL with a message
+ */
+export function generateWhatsAppLink(phone: string, message: string = ""): string {
+  const sanitized = sanitizeWhatsAppNumber(phone) || phone.replace(/\D/g, "");
+  return `https://wa.me/${sanitized}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+}
+
+
 

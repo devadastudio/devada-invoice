@@ -7,21 +7,19 @@ import {
   LayoutDashboard,
   Receipt,
   Users,
+  Target,
   HelpCircle,
   Settings,
   Moon,
-  Sun,
-  Sparkles,
   ChevronRight,
-  ChevronsUpDown,
   X,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CURRENT_USER, getStoredInvoices } from "@/lib/mock-data";
+import { CURRENT_USER } from "@/lib/mock-data";
 import { getStoredLanguage, getPlatformTranslations, AppLanguage } from "@/lib/i18n";
 import { useAuth } from "@/lib/supabase/auth-context";
-import { fetchInvoices, fetchClients } from "@/lib/supabase/db";
+import { fetchInvoices, fetchClients, fetchLeads } from "@/lib/supabase/db";
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -36,6 +34,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [invoicesCount, setInvoicesCount] = useState<number>(0);
   const [clientsCount, setClientsCount] = useState<number>(0);
+  const [leadsCount, setLeadsCount] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<{
     name: string;
     company: string;
@@ -84,23 +83,27 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       setIsDarkMode(document.documentElement.classList.contains("dark"));
     }
 
-    // Dynamic invoices and clients counter sync
+    // Dynamic invoices, clients, and leads counter sync
     const updateCount = async () => {
       if (user?.id) {
         try {
-          const [dbInvs, dbClients] = await Promise.all([
+          const [dbInvs, dbClients, dbLeads] = await Promise.all([
             fetchInvoices(user.id),
             fetchClients(user.id),
+            fetchLeads(user.id),
           ]);
           setInvoicesCount(dbInvs ? dbInvs.length : 0);
           setClientsCount(dbClients ? dbClients.length : 0);
+          setLeadsCount(dbLeads ? dbLeads.filter((l) => l.status === "new").length : 0);
           return;
         } catch {}
       }
       setInvoicesCount(0);
       setClientsCount(0);
+      setLeadsCount(0);
     };
     updateCount();
+    window.addEventListener("leads_updated", updateCount);
 
     // Dynamic user profile sync
     const updateProfile = () => {
@@ -194,6 +197,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       active: pathname === "/clients",
       badge: String(clientsCount),
       badgeColor: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    },
+    {
+      title: t.nav.leads,
+      href: "/leads",
+      icon: Target,
+      active: pathname?.startsWith("/leads"),
+      badge: leadsCount > 0 ? String(leadsCount) : undefined,
+      badgeColor: "bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
     },
   ];
 

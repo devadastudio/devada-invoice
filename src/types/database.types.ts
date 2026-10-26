@@ -83,6 +83,7 @@ export type Database = {
           bank_iban: string | null
           bank_name: string | null
           bank_rib_key: string | null
+          business_sector: string | null
           city: string | null
           company_logo: string | null
           company_name: string
@@ -107,6 +108,7 @@ export type Database = {
           om_number: string | null
           phone: string | null
           postal_code: string | null
+          prospecting_pitch: string | null
           rate_eur: number | null
           rate_usd: number | null
           rccm: string | null
@@ -138,6 +140,7 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_rib_key?: string | null
+          business_sector?: string | null
           city?: string | null
           company_logo?: string | null
           company_name?: string
@@ -162,6 +165,7 @@ export type Database = {
           om_number?: string | null
           phone?: string | null
           postal_code?: string | null
+          prospecting_pitch?: string | null
           rate_eur?: number | null
           rate_usd?: number | null
           rccm?: string | null
@@ -193,6 +197,7 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_rib_key?: string | null
+          business_sector?: string | null
           city?: string | null
           company_logo?: string | null
           company_name?: string
@@ -217,6 +222,7 @@ export type Database = {
           om_number?: string | null
           phone?: string | null
           postal_code?: string | null
+          prospecting_pitch?: string | null
           rate_eur?: number | null
           rate_usd?: number | null
           rccm?: string | null
@@ -383,6 +389,170 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_messages: {
+        Row: {
+          channel: string
+          content: string
+          created_at: string
+          id: string
+          lead_id: string
+          model: string | null
+          subject: string | null
+          tone: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          content: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          model?: string | null
+          subject?: string | null
+          tone?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          content?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          model?: string | null
+          subject?: string | null
+          tone?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_searches: {
+        Row: {
+          apify_dataset_id: string | null
+          apify_run_id: string | null
+          city: string
+          created_at: string
+          error: string | null
+          id: string
+          max_results: number
+          query: string
+          results_count: number
+          sender_sector: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          apify_dataset_id?: string | null
+          apify_run_id?: string | null
+          city: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          max_results?: number
+          query: string
+          results_count?: number
+          sender_sector?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          apify_dataset_id?: string | null
+          apify_run_id?: string | null
+          city?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          max_results?: number
+          query?: string
+          results_count?: number
+          sender_sector?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          address: string | null
+          category: string | null
+          city: string | null
+          converted_client_id: string | null
+          created_at: string
+          id: string
+          maps_url: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          place_id: string
+          rating: number | null
+          reviews_count: number | null
+          search_id: string | null
+          status: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          converted_client_id?: string | null
+          created_at?: string
+          id?: string
+          maps_url?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          place_id: string
+          rating?: number | null
+          reviews_count?: number | null
+          search_id?: string | null
+          status?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          converted_client_id?: string | null
+          created_at?: string
+          id?: string
+          maps_url?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          place_id?: string
+          rating?: number | null
+          reviews_count?: number | null
+          search_id?: string | null
+          status?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_converted_client_id_fkey"
+            columns: ["converted_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_search_id_fkey"
+            columns: ["search_id"]
+            isOneToOne: false
+            referencedRelation: "lead_searches"
             referencedColumns: ["id"]
           },
         ]

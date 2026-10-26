@@ -104,6 +104,7 @@ Couleurs autorisées : `bg-blue-600`, `bg-emerald-600`, `bg-violet-600`, `bg-ros
   - 📊 **Tableau de bord** (`/`) : Métriques financières en FCFA, graphiques de facturation/encaissement et top clients.
   - 🧾 **Factures** (`/invoices`) : Liste, statuts, recherche, création en split-view (`/invoices/new`) et détail interactif (`/invoices/[id]`).
   - 👥 **Clients** (`/clients`) : Annuaire des clients sénégalais, modale d'ajout/modification et soldes dus.
+  - 🎯 **Devada Leads** (`/leads`) : Module de prospection B2B, scraping Google Maps et génération de messages commerciaux IA.
   - ❓ **Aide & Support** (`/help`) : Centre de support, recherche FAQ interactive, hotline Dakar et formulaire de ticket.
   - ⚙️ **Paramètres** (`/settings`) : Informations légales (NINEA, RCCM, adresse), TVA 18%, et coordonnées Wave/Orange Money/Banque.
 

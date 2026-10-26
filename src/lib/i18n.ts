@@ -835,6 +835,7 @@ export interface PlatformUITranslations {
     dashboard: string;
     invoices: string;
     clients: string;
+    leads: string;
     settings: string;
     help: string;
     newInvoice: string;
@@ -909,6 +910,41 @@ export interface PlatformUITranslations {
     status: string;
     actions: string;
   };
+  leads: {
+    title: string;
+    subtitle: string;
+    searchTab: string;
+    leadsTab: string;
+    historyTab: string;
+    queryLabel: string;
+    queryPlaceholder: string;
+    senderSectorLabel: string;
+    senderSectorPlaceholder: string;
+    cityLabel: string;
+    cityPlaceholder: string;
+    maxResultsLabel: string;
+    pitchLabel: string;
+    pitchPlaceholder: string;
+    searchButton: string;
+    searching: string;
+    filterAll: string;
+    filterNew: string;
+    filterContacted: string;
+    filterReplied: string;
+    filterConverted: string;
+    filterIgnored: string;
+    statsTotal: string;
+    statsWithPhone: string;
+    statsWithoutWebsite: string;
+    statsConverted: string;
+    generateMessage: string;
+    batchGenerate: string;
+    exportCSV: string;
+    convertToClient: string;
+    openWhatsApp: string;
+    ignore: string;
+    delete: string;
+  };
   settings: {
     title: string;
     subtitle: string;
@@ -929,6 +965,7 @@ export const PLATFORM_TRANSLATIONS: Record<AppLanguage, PlatformUITranslations> 
       dashboard: "Tableau de bord",
       invoices: "Factures",
       clients: "Clients",
+      leads: "Devada Leads",
       settings: "Paramètres",
       help: "Aide & Support",
       newInvoice: "Nouvelle facture",
@@ -1003,6 +1040,41 @@ export const PLATFORM_TRANSLATIONS: Record<AppLanguage, PlatformUITranslations> 
       status: "Statut",
       actions: "Actions",
     },
+    leads: {
+      title: "Devada Leads — Prospection B2B",
+      subtitle: "Trouvez des prospects qualifiés au Sénégal et générez des messages d'approche personnalisés par IA",
+      searchTab: "Rechercher des prospects",
+      leadsTab: "Liste des prospects",
+      historyTab: "Historique des recherches",
+      queryLabel: "Activité ou mots-clés recherchés",
+      queryPlaceholder: "Ex: restaurants, agences de voyage, pharmacies...",
+      senderSectorLabel: "Votre secteur d'activité",
+      senderSectorPlaceholder: "Ex: Agence web & marketing digital",
+      cityLabel: "Ville ciblée",
+      cityPlaceholder: "Dakar, Thiès, Saint-Louis...",
+      maxResultsLabel: "Nombre de résultats",
+      pitchLabel: "Votre proposition de valeur (pitch)",
+      pitchPlaceholder: "Ex: Nous créons des sites vitrines modernes et optimisés pour le référencement local",
+      searchButton: "Trouver des prospects",
+      searching: "Recherche en cours sur Google Maps...",
+      filterAll: "Tous",
+      filterNew: "Nouveaux",
+      filterContacted: "Contactés",
+      filterReplied: "Ont répondu",
+      filterConverted: "Convertis",
+      filterIgnored: "Ignorés",
+      statsTotal: "Total prospects",
+      statsWithPhone: "Avec téléphone",
+      statsWithoutWebsite: "Sans site web",
+      statsConverted: "Clients convertis",
+      generateMessage: "Générer un message IA",
+      batchGenerate: "Générer les messages",
+      exportCSV: "Exporter en CSV",
+      convertToClient: "Convertir en client",
+      openWhatsApp: "Ouvrir dans WhatsApp",
+      ignore: "Ignorer le prospect",
+      delete: "Supprimer",
+    },
     settings: {
       title: "Paramètres de l'entreprise",
       subtitle: "Configurez vos mentions légales, fiscalité, coordonnées et langues",
@@ -1021,6 +1093,7 @@ export const PLATFORM_TRANSLATIONS: Record<AppLanguage, PlatformUITranslations> 
       dashboard: "Dashboard",
       invoices: "Invoices",
       clients: "Clients",
+      leads: "Devada Leads",
       settings: "Settings",
       help: "Help & Support",
       newInvoice: "New Invoice",
@@ -1095,6 +1168,41 @@ export const PLATFORM_TRANSLATIONS: Record<AppLanguage, PlatformUITranslations> 
       status: "Status",
       actions: "Actions",
     },
+    leads: {
+      title: "Devada Leads — B2B Prospecting",
+      subtitle: "Find qualified business prospects in Senegal and generate personalized AI sales messages",
+      searchTab: "Find Prospects",
+      leadsTab: "Prospects List",
+      historyTab: "Search History",
+      queryLabel: "Business type or keywords",
+      queryPlaceholder: "e.g. restaurants, travel agencies, pharmacies...",
+      senderSectorLabel: "Your business sector",
+      senderSectorPlaceholder: "e.g. Web agency & digital marketing",
+      cityLabel: "Target City",
+      cityPlaceholder: "Dakar, Thiès, Saint-Louis...",
+      maxResultsLabel: "Max Results",
+      pitchLabel: "Your value proposition (pitch)",
+      pitchPlaceholder: "e.g. We design modern websites optimized for local SEO",
+      searchButton: "Find Prospects",
+      searching: "Searching on Google Maps...",
+      filterAll: "All",
+      filterNew: "New",
+      filterContacted: "Contacted",
+      filterReplied: "Replied",
+      filterConverted: "Converted",
+      filterIgnored: "Ignored",
+      statsTotal: "Total Prospects",
+      statsWithPhone: "With Phone",
+      statsWithoutWebsite: "No Website",
+      statsConverted: "Converted Clients",
+      generateMessage: "Generate AI Message",
+      batchGenerate: "Generate Messages",
+      exportCSV: "Export CSV",
+      convertToClient: "Convert to Client",
+      openWhatsApp: "Open in WhatsApp",
+      ignore: "Ignore Prospect",
+      delete: "Delete",
+    },
     settings: {
       title: "Company Settings",
       subtitle: "Configure legal records, tax ID, payment details, and languages",
@@ -1113,6 +1221,7 @@ export const PLATFORM_TRANSLATIONS: Record<AppLanguage, PlatformUITranslations> 
       dashboard: "Dashboard",
       invoices: "Fatture",
       clients: "Clienti",
+      leads: "Devada Leads",
       settings: "Impostazioni",
       help: "Aiuto & Supporto",
       newInvoice: "Nuova Fattura",
@@ -1172,7 +1281,7 @@ export const PLATFORM_TRANSLATIONS: Record<AppLanguage, PlatformUITranslations> 
       dueDate: "Scadenza",
       amount: "Totale Fattura",
       status: "Stato",
-      actions: "Azioni",
+      actions: "Actions",
     },
     clients: {
       title: "Registro Clienti",
@@ -1186,6 +1295,41 @@ export const PLATFORM_TRANSLATIONS: Record<AppLanguage, PlatformUITranslations> 
       balanceDue: "Saldo Dovuto",
       status: "Stato",
       actions: "Azioni",
+    },
+    leads: {
+      title: "Devada Leads — Ricerca Clienti B2B",
+      subtitle: "Trova potenziali clienti qualificati in Senegal e genera messaggi commerciali personalizzati con l'IA",
+      searchTab: "Cerca Clienti",
+      leadsTab: "Elenco Contatti",
+      historyTab: "Cronologia Ricerche",
+      queryLabel: "Attività o parole chiave",
+      queryPlaceholder: "Es: ristoranti, agenzie di viaggio, farmacie...",
+      senderSectorLabel: "Il tuo settore di attività",
+      senderSectorPlaceholder: "Es: Web agency & marketing digitale",
+      cityLabel: "Città di destinazione",
+      cityPlaceholder: "Dakar, Thiès, Saint-Louis...",
+      maxResultsLabel: "Numero massimo di risultati",
+      pitchLabel: "La tua proposta di valore (pitch)",
+      pitchPlaceholder: "Es: Realizziamo siti web moderni e ottimizzati per la visibilità locale",
+      searchButton: "Trova Contatti",
+      searching: "Ricerca in corso su Google Maps...",
+      filterAll: "Tutti",
+      filterNew: "Nuovi",
+      filterContacted: "Contattati",
+      filterReplied: "Hanno risposto",
+      filterConverted: "Convertiti",
+      filterIgnored: "Ignorati",
+      statsTotal: "Totale Contatti",
+      statsWithPhone: "Con Telefono",
+      statsWithoutWebsite: "Senza Sito Web",
+      statsConverted: "Clienti Convertiti",
+      generateMessage: "Genera Messaggio IA",
+      batchGenerate: "Genera Messaggi",
+      exportCSV: "Esporta in CSV",
+      convertToClient: "Converti in Cliente",
+      openWhatsApp: "Apri su WhatsApp",
+      ignore: "Ignora Contatto",
+      delete: "Elimina",
     },
     settings: {
       title: "Impostazioni Aziendali",
