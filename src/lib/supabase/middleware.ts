@@ -82,15 +82,12 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/landing") ||
     pathname.startsWith("/api/auth");
 
-  // Si visiteur non connecté sur la racine "/", rediriger vers la landing page officielle
-  if (!user && pathname === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/landing";
-    return NextResponse.redirect(url);
-  }
-
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
+    if (pathname === "/") {
+      url.pathname = "/landing";
+      return NextResponse.redirect(url);
+    }
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }

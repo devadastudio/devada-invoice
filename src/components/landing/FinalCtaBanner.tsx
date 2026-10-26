@@ -4,45 +4,46 @@ import React from "react";
 import Link from "next/link";
 import { ArrowRight, MessageCircle } from "lucide-react";
 
-export default function FinalCtaBanner() {
+export function FinalCtaBanner() {
   return (
-    <section className="py-12 sm:py-20 bg-white dark:bg-slate-900 transition-colors">
+    <section className="py-16 sm:py-20 bg-white dark:bg-[#0D121F]" data-purpose="final-cta">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-12 lg:p-16 text-white shadow-xl relative overflow-hidden">
-          {/* Abstract background blur shapes */}
-          <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute left-1/4 top-0 w-60 h-60 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+        {/* Modern Cobalt Blue Banner */}
+        <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 rounded-3xl p-8 sm:p-14 text-white shadow-xl relative overflow-hidden">
+          {/* Abstract Background Circle Shape */}
+          <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-white/10 rounded-full blur-xl pointer-events-none" />
 
           <div className="relative z-10 max-w-3xl">
-            <span className="inline-block px-3.5 py-1.5 rounded-full bg-white/15 text-white text-xs font-extrabold uppercase tracking-widest mb-4 border border-white/20">
-              Rejoignez la Révolution de la Facturation
+            <span className="inline-block px-3 py-1 rounded-full bg-white/15 text-white text-xs font-bold mb-4 tracking-wide border border-white/20">
+              REJOIGNEZ LA RÉVOLUTION DE LA FACTURATION
             </span>
 
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight text-white">
               Rejoins les milliers d&apos;entrepreneurs qui facturent comme des pros.
             </h2>
 
-            <p className="mt-4 text-sm sm:text-lg text-white/90 font-normal leading-relaxed">
-              Commence gratuitement dès aujourd&apos;hui. Aucune carte bancaire requise. Configuration en 3 minutes chrono.
+            <p className="mt-4 text-base sm:text-lg text-white/90 font-normal max-w-2xl">
+              Commence gratuitement dès aujourd&apos;hui. Aucune carte bancaire requise. Configuration en 3
+              minutes chrono.
             </p>
 
-            <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Link
                 href="/auth/register"
-                className="px-8 py-3.5 rounded-xl bg-white text-blue-700 hover:bg-slate-50 font-bold text-sm tracking-wide transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2 text-center"
+                className="px-8 py-3.5 rounded-xl bg-white text-blue-700 hover:bg-slate-50 font-bold text-sm tracking-wide transition-all shadow-md active:scale-[0.98] flex items-center gap-2 group"
               >
                 <span>Commencer gratuitement</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
 
-              <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-white/90 bg-white/10 px-3.5 py-2.5 rounded-xl border border-white/15">
-                <span className="relative flex h-2 w-2">
+              <span className="text-xs text-white/90 flex items-center gap-2 bg-white/10 px-3 py-2 rounded-xl backdrop-blur-sm border border-white/10">
+                <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
                 </span>
-                <MessageCircle className="w-4 h-4 text-emerald-300 ml-1" />
+                <MessageCircle className="w-3.5 h-3.5" />
                 <span>Support local disponible en direct sur WhatsApp</span>
-              </div>
+              </span>
             </div>
           </div>
         </div>
