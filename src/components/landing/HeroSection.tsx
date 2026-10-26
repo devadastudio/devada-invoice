@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, Play, Check, Clock, Zap, DollarSign, Percent } from "lucide-react";
+import { ArrowRight, Play, Check, Clock, Zap, DollarSign } from "lucide-react";
 import { DashboardMockup } from "./DashboardMockup";
 
 export function HeroSection() {

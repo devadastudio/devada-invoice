@@ -2,18 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import {
-  FileText,
-  CheckCircle2,
-  TrendingUp,
-  Smartphone,
-  ShieldCheck,
-  Send,
-  Zap,
-  QrCode,
-  Download,
-  Share2,
-} from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { WhatsAppIcon } from "@/lib/whatsapp-utils";
 
 type MockupTab = "invoice" | "wave" | "tva";

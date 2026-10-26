@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Moon, Sun, Menu, X, ArrowRight, ShieldCheck } from "lucide-react";
+import { Moon, Sun, Menu, X, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/supabase/auth-context";
 
 interface LandingHeaderProps {
